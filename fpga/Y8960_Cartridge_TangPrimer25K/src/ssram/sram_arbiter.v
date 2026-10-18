@@ -32,50 +32,37 @@ module sram_arbiter (
 	input	[7:0]	ssram_rdata,
 	input			ssram_rdata_en
 );
-	reg		[2:0]	ff_divider;
-	wire			w_active;
-	reg				ff_adpcm_phase;
+	reg				ff_adpcm_owner;
+	wire			w_cpu_select;
 
 	// ---------------------------------------------------------
-	//	Active timing generator
+	//	Arbitration (CPU has priority)
+	//	ssram accepts a request when ssram_valid & ssram_ready, and
+	//	ssram_ready does not return before the read data (ssram_rdata_en)
+	//	of that request, so the owner of the last accepted request is the
+	//	destination of ssram_rdata_en.
 	// ---------------------------------------------------------
-	always @( posedge clk ) begin
-		if( !reset_n ) begin
-			ff_divider <= 3'd0;
-		end
-		else begin
-			ff_divider <= ff_divider + 3'd1;
-		end
-	end
-	assign w_active	= ( ff_divider == 3'd7 );
+	assign w_cpu_select		= cpu_valid;
 
 	always @( posedge clk ) begin
 		if( !reset_n ) begin
-			ff_adpcm_phase <= 1'b0;
+			ff_adpcm_owner <= 1'b0;
 		end
-		else if( w_active ) begin
-			if( !cpu_valid && adpcm_valid ) begin
-				ff_adpcm_phase <= 1'b1;
-			end
-			else begin
-				ff_adpcm_phase <= 1'b0;
-			end
+		else if( ssram_valid && ssram_ready ) begin
+			ff_adpcm_owner <= ~w_cpu_select;
 		end
 	end
 
-	// ---------------------------------------------------------
-	//	Arbitration
-	// ---------------------------------------------------------
-	assign ssram_address	= cpu_valid ? { 1'b0, cpu_address } : { 1'b1, adpcm_address };
-	assign ssram_write		= cpu_valid ? cpu_write : adpcm_write;
-	assign ssram_wdata		= cpu_valid ? cpu_wdata : adpcm_wdata;
-	assign ssram_valid		= w_active & (cpu_valid | adpcm_valid);
+	assign ssram_address	= w_cpu_select ? { 1'b0, cpu_address } : { 1'b1, adpcm_address };
+	assign ssram_write		= w_cpu_select ? cpu_write : adpcm_write;
+	assign ssram_wdata		= w_cpu_select ? cpu_wdata : adpcm_wdata;
+	assign ssram_valid		= cpu_valid | adpcm_valid;
 
-	assign cpu_ready		= w_active & ssram_ready;
-	assign adpcm_ready		= w_active & ssram_ready & !cpu_valid;
+	assign cpu_ready		= ssram_ready;
+	assign adpcm_ready		= ssram_ready & ~w_cpu_select;
 
 	assign cpu_rdata		= ssram_rdata;
-	assign cpu_rdata_en		= ssram_rdata_en & !ff_adpcm_phase;
+	assign cpu_rdata_en		= ssram_rdata_en & ~ff_adpcm_owner;
 	assign adpcm_rdata		= ssram_rdata;
-	assign adpcm_rdata_en	= ssram_rdata_en & ff_adpcm_phase;
+	assign adpcm_rdata_en	= ssram_rdata_en & ff_adpcm_owner;
 endmodule

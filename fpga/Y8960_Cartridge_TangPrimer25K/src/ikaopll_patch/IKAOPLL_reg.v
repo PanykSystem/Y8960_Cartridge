@@ -28,6 +28,9 @@ module IKAOPLL_reg #(parameter FULLY_SYNCHRONOUS = 1, parameter ALTPATCH_CONFIG_
     input   wire    [7:0]   i_D,
     output  wire    [1:0]   o_D,
     output  wire            o_D_OE,
+    output  wire            o_ADDRREG_WRRQ,
+    output  wire            o_DATAREG_WRRQ,
+    output  wire            o_D9REG_COMMIT,
 
     //VRC7 patch enable pin
     input   wire            i_ALTPATCH_EN,
@@ -50,6 +53,7 @@ module IKAOPLL_reg #(parameter FULLY_SYNCHRONOUS = 1, parameter ALTPATCH_CONFIG_
     output  reg     [1:0]   o_KSL,
     output  wire    [3:0]   o_AR, o_DR, o_RR,
     output  reg     [3:0]   o_SL,
+    output  wire    [7:0]   o_PAN,
 
     //misc
     output  wire            o_EG_ENVCNTR_TEST_DATA,
@@ -78,6 +82,8 @@ assign  o_D_OE = |{i_CS_n, ~i_WR_n, i_A0, ~i_RST_n};
 ////
 
 wire            addrreg_wrrq, datareg_wrrq;
+assign o_ADDRREG_WRRQ = addrreg_wrrq;
+assign o_DATAREG_WRRQ = datareg_wrrq;
 IKAOPLL_rw_synchronizer #(.FULLY_SYNCHRONOUS(FULLY_SYNCHRONOUS)) u_sync_addrreg(
     .i_EMUCLK(emuclk), .i_phiM_PCEN_n(phiMpcen_n), .i_phi1_PCEN_n(phi1pcen_n), .i_phi1_NCEN_n(phi1ncen_n),
     .i_RST_n(i_RST_n), .i_IN(~|{i_CS_n, i_WR_n, i_A0}), .o_OUT(addrreg_wrrq)
@@ -217,7 +223,7 @@ reg             d9reg_en;
 always @(posedge emuclk) begin
     if(!i_RST_n) d9reg_en <= 1'b0;
     else begin if(!phi1ncen_n) begin
-        if(addrreg_wrrq) d9reg_en <= dbus_inlatch[7:6] == 2'b00;
+        if(addrreg_wrrq) d9reg_en <= dbus_inlatch[7] == 1'b0;
     end end
 end
 
@@ -246,12 +252,14 @@ end
 
 //address match signal
 wire            d9reg_addr_match = ~d9reg_addrcntr[4] & (d9reg_addrcntr[3:0] == d9reg_addr[3:0]) & trace_d9reg_addrcntr;
+assign o_D9REG_COMMIT = d9reg_addr_match;
 
 //D9REG enable signals
 wire            reg10_18_en = ((d9reg_addr[6:4] == 3'b001) & d9reg_addr_match) | ~i_RST_n;
 wire            reg20_28_en = ((d9reg_addr[6:4] == 3'b010) & d9reg_addr_match) | ~i_RST_n;
 wire            reg30_38_en = ((d9reg_addr[6:4] == 3'b011) & d9reg_addr_match) | ~i_RST_n;
 wire            reg40_48_en = ((d9reg_addr[6:4] == 3'b100) & d9reg_addr_match) | ~i_RST_n;
+wire            reg50_58_en = ((d9reg_addr[6:4] == 3'b101) & d9reg_addr_match) | ~i_RST_n;
 //D9REG
 wire            kon_reg;
 wire    [3:0]   vol_reg, inst_reg;
@@ -280,6 +288,9 @@ IKAOPLL_d9reg #(4) u_inst      (.i_EMUCLK(emuclk), .i_phi1_NCEN_n(phi1ncen_n),
 
 IKAOPLL_d9reg #(2) u_bank      (.i_EMUCLK(emuclk), .i_phi1_NCEN_n(phi1ncen_n), 
                                 .i_EN(reg40_48_en), .i_TAPSEL({i_CYCLE_D4_ZZ, i_CYCLE_D3_ZZ}), .i_D(i_RST_n ? d9reg_data[1:0] : 2'd0), .o_Q(bank_reg));
+
+IKAOPLL_panreg u_pan            (.i_EMUCLK(emuclk), .i_phi1_NCEN_n(phi1ncen_n), .i_RST_n(i_RST_n),
+                                .i_EN(reg50_58_en), .i_TAPSEL({i_CYCLE_D4_ZZ, i_CYCLE_D3_ZZ}), .i_D(d9reg_data), .o_Q(o_PAN));
 
 
 ///////////////////////////////////////////////////////////
@@ -528,6 +539,45 @@ end
 
 end
 endgenerate
+
+endmodule
+
+module IKAOPLL_panreg (
+    input   wire            i_EMUCLK,
+    input   wire            i_phi1_NCEN_n,
+    input   wire            i_RST_n,
+
+    input   wire            i_EN,
+    input   wire    [1:0]   i_TAPSEL,
+    input   wire    [7:0]   i_D,
+    output  reg     [7:0]   o_Q
+);
+
+reg     [7:0]   pan_sr[0:8];
+integer         stage;
+
+always @(posedge i_EMUCLK) begin
+    if(!i_RST_n) begin
+        for(stage = 0; stage < 9; stage = stage + 1) begin
+            pan_sr[stage] <= 8'd128;
+        end
+    end
+    else if(!i_phi1_NCEN_n) begin
+        pan_sr[0] <= i_EN ? i_D : pan_sr[8];
+        for(stage = 0; stage < 8; stage = stage + 1) begin
+            pan_sr[stage + 1] <= pan_sr[stage];
+        end
+    end
+end
+
+always @(*) begin
+    case(i_TAPSEL)
+        2'd0: o_Q = pan_sr[1];
+        2'd1: o_Q = pan_sr[4];
+        2'd2: o_Q = pan_sr[7];
+        default: o_Q = 8'd128;
+    endcase
+end
 
 endmodule
 

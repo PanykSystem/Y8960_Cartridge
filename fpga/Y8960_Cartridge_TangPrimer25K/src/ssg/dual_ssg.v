@@ -65,8 +65,8 @@ module dual_ssg #(
 	input	[7:0]	ssg_ioa1,
 	output	[7:0]	ssg_iob1,
 
-	output	[11:0]	sound_out0,			//	10bit/ch * 3ch = 12bit
-	output	[11:0]	sound_out1,			//	10bit/ch * 3ch = 12bit
+	output	[12:0]	sound_l_out,		//	10bit/ch * 6ch = 13bit
+	output	[12:0]	sound_r_out,
 	input	[1:0]	mode				//	0: disable, 1: single(core0), 2: single(core1), 3: dual
 );
 	wire	[7:0]	w_rdata0;
@@ -75,6 +75,10 @@ module dual_ssg #(
 	wire	[7:0]	w_rdata1;
 	wire			w_rdata_en1;
     wire            w_bus_ssg_ready1;
+	wire	[11:0]	w_sound_l_out0;
+	wire	[11:0]	w_sound_r_out0;
+	wire	[11:0]	w_sound_l_out1;
+	wire	[11:0]	w_sound_r_out1;
 
 	ssg_core #( 
 		.builtin		( BUILTIN			),
@@ -93,7 +97,8 @@ module dual_ssg #(
 		.bus_rdata_en	( w_rdata_en0		),
 		.ssg_ioa		( ssg_ioa0			),
 		.ssg_iob		( ssg_iob0			),
-		.sound_out		( sound_out0		),
+		.sound_l_out	( w_sound_l_out0	),
+		.sound_r_out	( w_sound_r_out0	),
 		.mode			( mode				)
 	);
 
@@ -114,11 +119,14 @@ module dual_ssg #(
 		.bus_rdata_en	( w_rdata_en1		),
 		.ssg_ioa		( ssg_ioa1			),
 		.ssg_iob		( ssg_iob1			),
-		.sound_out		( sound_out1		),
+		.sound_l_out	( w_sound_l_out1	),
+		.sound_r_out	( w_sound_r_out1	),
 		.mode			( mode				)
 	);
 
     assign bus_ready        = w_bus_ssg_ready0 | w_bus_ssg_ready1;
 	assign bus_rdata		= w_rdata0 & w_rdata1;
 	assign bus_rdata_en		= w_rdata_en0 | w_rdata_en1;
+	assign sound_l_out		= { 1'b0, w_sound_l_out0 } + { 1'b0, w_sound_l_out1 };
+	assign sound_r_out		= { 1'b0, w_sound_r_out0 } + { 1'b0, w_sound_r_out1 };
 endmodule

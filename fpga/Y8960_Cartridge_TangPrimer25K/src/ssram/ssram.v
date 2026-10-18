@@ -1,7 +1,19 @@
 // --------------------------------------------------------------------
-//	SerialSRAM
+//	SerialSRAM (Microchip 23AA04M, SQI mode)
 // ====================================================================
 //	2026/01/26 t.hara
+// --------------------------------------------------------------------
+//	bus_ready
+//		1 when the controller can accept a new request.
+//		It falls in the clock following an accepted request and rises again
+//		when the serial side has completed the request.
+//	bus_burst (write only)
+//		1: more sequential writes follow. CE# stays low and SCLK stops after
+//		   the data byte, and the next write streams only the data byte.
+//		   bus_address of following writes is ignored (sequential mode).
+//		0: the burst ends with this write.
+//	bus_rdata_en
+//		One clock pulse when bus_rdata holds the requested read data.
 // --------------------------------------------------------------------
 
 module ssram (
@@ -11,6 +23,7 @@ module ssram (
 	input			bus_cs,
 	input	[18:0]	bus_address,
 	input			bus_write,
+	input			bus_burst,
 	input			bus_valid,
 	input	[7:0]	bus_wdata,
 	output			bus_ready,
@@ -21,67 +34,122 @@ module ssram (
 	output			sram_ce_n,
 	inout	[3:0]	sram_sio
 );
-	localparam		c_state_init_w0		= 5'd0;
-	localparam		c_state_init_eqio0	= 5'd1;
-	localparam		c_state_init_eqio1	= 5'd2;
-	localparam		c_state_init_eqio2	= 5'd3;
-	localparam		c_state_init_eqio3	= 5'd4;
-	localparam		c_state_init_eqio4	= 5'd5;
-	localparam		c_state_init_eqio5	= 5'd6;
-	localparam		c_state_init_eqio6	= 5'd7;
-	localparam		c_state_init_eqio7	= 5'd8;
-	localparam		c_state_idle		= 5'd9;
-	localparam		c_state_start		= 5'd10;
-	localparam		c_state_cmd			= 5'd11;
-	localparam		c_state_address0	= 5'd12;
-	localparam		c_state_address1	= 5'd13;
-	localparam		c_state_address2	= 5'd14;
-	localparam		c_state_address3	= 5'd15;
-	localparam		c_state_address4	= 5'd16;
-	localparam		c_state_address5	= 5'd17;
-	localparam		c_state_write0		= 5'd18;
-	localparam		c_state_write1		= 5'd19;
-	localparam		c_state_dummy0		= 5'd20;
-	localparam		c_state_dummy1		= 5'd21;
-	localparam		c_state_dummy2		= 5'd22;
-	localparam		c_state_dummy3		= 5'd23;
-	localparam		c_state_dummy4		= 5'd24;
-	localparam		c_state_dummy5		= 5'd25;
-	localparam		c_state_read0		= 5'd26;
-	localparam		c_state_read1		= 5'd27;
-	localparam		c_state_read2		= 5'd28;
-	localparam		c_state_read3		= 5'd29;
-	localparam		c_state_read_wait	= 5'd30;
-	localparam [13:0]	c_powerup_wait_count = 14'd10000;	// 100us at 100.226MHz SCLK timing tick
+	localparam	[5:0]	c_state_init_w0		= 6'd0;
+	localparam	[5:0]	c_state_init_eqio0	= 6'd1;
+	localparam	[5:0]	c_state_init_eqio1	= 6'd2;
+	localparam	[5:0]	c_state_init_eqio2	= 6'd3;
+	localparam	[5:0]	c_state_init_eqio3	= 6'd4;
+	localparam	[5:0]	c_state_init_eqio4	= 6'd5;
+	localparam	[5:0]	c_state_init_eqio5	= 6'd6;
+	localparam	[5:0]	c_state_init_eqio6	= 6'd7;
+	localparam	[5:0]	c_state_init_eqio7	= 6'd8;
+	localparam	[5:0]	c_state_idle		= 6'd9;
+	localparam	[5:0]	c_state_start		= 6'd10;
+	localparam	[5:0]	c_state_cmd			= 6'd11;
+	localparam	[5:0]	c_state_address0	= 6'd12;
+	localparam	[5:0]	c_state_address1	= 6'd13;
+	localparam	[5:0]	c_state_address2	= 6'd14;
+	localparam	[5:0]	c_state_address3	= 6'd15;
+	localparam	[5:0]	c_state_address4	= 6'd16;
+	localparam	[5:0]	c_state_address5	= 6'd17;
+	localparam	[5:0]	c_state_write0		= 6'd18;
+	localparam	[5:0]	c_state_write1		= 6'd19;
+	localparam	[5:0]	c_state_dummy0		= 6'd20;
+	localparam	[5:0]	c_state_dummy1		= 6'd21;
+	localparam	[5:0]	c_state_dummy2		= 6'd22;
+	localparam	[5:0]	c_state_dummy3		= 6'd23;
+	localparam	[5:0]	c_state_dummy4		= 6'd24;
+	localparam	[5:0]	c_state_dummy5		= 6'd25;
+	localparam	[5:0]	c_state_read0		= 6'd26;
+	localparam	[5:0]	c_state_read1		= 6'd27;
+	localparam	[5:0]	c_state_read2		= 6'd28;
+	localparam	[5:0]	c_state_read3		= 6'd29;
+	localparam	[5:0]	c_state_read_wait	= 6'd30;
+	localparam	[5:0]	c_state_init_rstio0	= 6'd31;
+	localparam	[5:0]	c_state_init_rstio1	= 6'd32;
+	localparam	[5:0]	c_state_init_rstio2	= 6'd33;
+	localparam	[5:0]	c_state_burst_wait	= 6'd34;
+	localparam	[5:0]	c_state_restart		= 6'd35;
+	localparam [13:0]	c_powerup_wait_count = 14'd10000;	// 116us at 85.9MHz SCLK timing tick
 
-	reg				ff_ready;
+	//	clk domain
+	reg				ff_req_toggle_clk;
+	reg		[18:0]	ff_req_address_clk;
+	reg				ff_req_write_clk;
+	reg				ff_req_burst_clk;
+	reg		[7:0]	ff_req_wdata_clk;
+	reg				ff_ack_s1;
+	reg				ff_ack_s2;
+	reg				ff_ack_s3;
+	reg				ff_init_s1;
+	reg				ff_init_s2;
+	wire			w_req;
+	wire			w_ready;
+
+	//	clk_serial domain
+	reg				ff_req_toggle_200_d0;
+	reg				ff_req_toggle_200_d1;
 	reg				ff_valid_d0;
 	reg				ff_valid_d1;
 	wire			w_valid;
-	reg				ff_req_toggle_clk;
-	reg				ff_req_toggle_200_d0;
-	reg				ff_req_toggle_200_d1;
-	reg		[18:0]	ff_req_address_clk;
-	reg				ff_req_write_clk;
-	reg		[7:0]	ff_req_wdata_clk;
 	reg		[18:0]	ff_address;
 	reg		[7:0]	ff_wdata;
 	reg		[7:0]	ff_rdata;
-	reg				ff_rdata_en;
-	reg				ff_read_complete;		// Toggle signal for read complete
 	reg				ff_write;
+	reg				ff_burst;
 	reg				ff_read;
-	reg		[4:0]	ff_state;
-	reg				ff_active;
+	reg		[5:0]	ff_state;
+	reg				ff_init_done;
+	reg				ff_ack_toggle;
 	reg				ff_ce_n;
+	reg				ff_sclk_en;
 	reg		[3:0]	ff_so;
 	reg				ff_sclk_div;
-	reg	[13:0]	ff_powerup_wait;
-	wire			w_req;
+	reg				ff_sclk;
+	reg		[13:0]	ff_powerup_wait;
 
-	assign w_req = bus_cs && bus_valid;
+	assign w_req	= bus_cs && bus_valid;
 
-	// Internal SCLK divider: input clock is 200.452MHz, output SCLK becomes half-rate.
+	// ---------------------------------------------------------
+	//	clk domain: request / completion handshake
+	// ---------------------------------------------------------
+	always @( posedge clk ) begin
+		if( !n_reset ) begin
+			ff_ack_s1	<= 1'b0;
+			ff_ack_s2	<= 1'b0;
+			ff_ack_s3	<= 1'b0;
+			ff_init_s1	<= 1'b0;
+			ff_init_s2	<= 1'b0;
+		end
+		else begin
+			ff_ack_s1	<= ff_ack_toggle;
+			ff_ack_s2	<= ff_ack_s1;
+			ff_ack_s3	<= ff_ack_s2;
+			ff_init_s1	<= ff_init_done;
+			ff_init_s2	<= ff_init_s1;
+		end
+	end
+
+	assign w_ready	= ff_init_s2 && (ff_ack_s2 == ff_req_toggle_clk);
+
+	always @( posedge clk ) begin
+		if( !n_reset ) begin
+			ff_req_toggle_clk	<= 1'b0;
+			ff_req_address_clk	<= 19'd0;
+			ff_req_write_clk	<= 1'b0;
+			ff_req_burst_clk	<= 1'b0;
+			ff_req_wdata_clk	<= 8'd0;
+		end
+		else if( w_req && w_ready ) begin
+			ff_req_address_clk	<= bus_address;
+			ff_req_write_clk	<= bus_write;
+			ff_req_burst_clk	<= bus_write & bus_burst;
+			ff_req_wdata_clk	<= bus_wdata;
+			ff_req_toggle_clk	<= ~ff_req_toggle_clk;
+		end
+	end
+
+	// Internal SCLK divider: input clock is 171.8MHz, output SCLK becomes half-rate.
 	always @( posedge clk_serial ) begin
 		if( !n_reset ) begin
 			ff_sclk_div <= 1'b0;
@@ -92,7 +160,7 @@ module ssram (
 	end
 
 	// ---------------------------------------------------------
-	//	Access timing pulse
+	//	Request synchronizer (clk -> clk_serial)
 	// ---------------------------------------------------------
 	always @( posedge clk_serial ) begin
 		if( !n_reset ) begin
@@ -105,9 +173,6 @@ module ssram (
 		end
 	end
 
-	// ---------------------------------------------------------
-	//	Access timing pulse
-	// ---------------------------------------------------------
 	always @( posedge clk_serial ) begin
 		if( !n_reset ) begin
 			ff_valid_d0 <= 1'b0;
@@ -120,39 +185,6 @@ module ssram (
 	end
 
 	assign w_valid		= ff_valid_d0 ^ ff_valid_d1;
-
-	// ---------------------------------------------------------
-	//	Ready (synchronize to clk domain)
-	// ---------------------------------------------------------
-	always @( posedge clk ) begin
-		if( !n_reset ) begin
-			ff_ready	<= 1'b0;
-		end
-		else if( w_req && ff_ready ) begin
-			ff_ready	<= 1'b0;
-		end
-		else if( ff_active ) begin
-			//	ready
-			ff_ready	<= 1'b1;
-		end
-	end
-
-	always @( posedge clk ) begin
-		if( !n_reset ) begin
-			ff_req_toggle_clk <= 1'b0;
-			ff_req_address_clk <= 19'd0;
-			ff_req_write_clk <= 1'b0;
-			ff_req_wdata_clk <= 8'd0;
-		end
-		else begin
-			if( w_req && ff_ready ) begin
-				ff_req_address_clk <= bus_address;
-				ff_req_write_clk <= bus_write;
-				ff_req_wdata_clk <= bus_wdata;
-				ff_req_toggle_clk <= ~ff_req_toggle_clk;
-			end
-		end
-	end
 
 	// ---------------------------------------------------------
 	//	Data latch
@@ -171,17 +203,58 @@ module ssram (
 	// ---------------------------------------------------------
 	always @( posedge clk_serial ) begin
 		if( !n_reset ) begin
-			ff_state	<= c_state_init_w0;
-			ff_ce_n		<= 1'b1;
-			ff_active	<= 1'b0;
-			ff_so		<= 4'b1zz0;
-			ff_address	<= 19'd0;
-			ff_read		<= 1'b0;
-			ff_write	<= 1'b0;
-			ff_powerup_wait <= 14'd0;
+			ff_state		<= c_state_init_w0;
+			ff_ce_n			<= 1'b1;
+			ff_sclk_en		<= 1'b1;
+			ff_init_done	<= 1'b0;
+			ff_ack_toggle	<= 1'b0;
+			ff_so			<= 4'b1zz0;
+			ff_address		<= 19'd0;
+			ff_read			<= 1'b0;
+			ff_write		<= 1'b0;
+			ff_burst		<= 1'b0;
+			ff_powerup_wait	<= 14'd0;
 		end
 		else if( ff_sclk_div ) begin
 			case( ff_state )
+			//	RSTIO (Reset Quad I/O) ----------------------------------------
+			//	FFh in SQI mode (2 SCLK). When the SRAM is already in SQI mode
+			//	(e.g. after an MSX reset), this returns it to SPI mode. In SPI
+			//	mode, these 2 SCLK form an incomplete command and are ignored.
+			c_state_init_w0: begin
+				// Datasheet TPU timing: do not assert CS for at least 100us after power-up.
+				if( ff_powerup_wait == c_powerup_wait_count - 14'd1 ) begin
+					ff_state		<= c_state_init_rstio0;
+					ff_ce_n			<= 1'b0;
+					ff_so			<= 4'b1111;
+				end
+				else begin
+					ff_powerup_wait	<= ff_powerup_wait + 14'd1;
+					ff_ce_n			<= 1'b1;
+					ff_so			<= 4'bzzzz;
+				end
+			end
+			c_state_init_rstio0: begin
+				ff_state		<= c_state_init_rstio1;
+				ff_so			<= 4'b1111;
+			end
+			c_state_init_rstio1: begin
+				ff_state		<= c_state_init_rstio2;
+				ff_ce_n			<= 1'b1;
+				ff_so			<= 4'bzzzz;
+				ff_powerup_wait	<= 14'd0;
+			end
+			c_state_init_rstio2: begin
+				//	CE# high time before EQIO
+				if( ff_powerup_wait == 14'd7 ) begin
+					ff_state		<= c_state_init_eqio0;
+					ff_ce_n			<= 1'b0;
+					ff_so			<= 4'b1zz0;
+				end
+				else begin
+					ff_powerup_wait	<= ff_powerup_wait + 14'd1;
+				end
+			end
 			//	EQIO (Enable Quad I/O Instruction) -----------------------------
 			//	            __                                __
 			//	sram_ce_n     ________________________________
@@ -196,19 +269,6 @@ module ssram (
 			//	            ____________________________________
 			//	sram_sio[3]    1                                 /HOLD
 			//
-			c_state_init_w0: begin
-				// Datasheet TPU timing: do not assert CS for at least 100us after power-up.
-				if( ff_powerup_wait == c_powerup_wait_count - 14'd1 ) begin
-					ff_state	<= c_state_init_eqio0;
-					ff_ce_n		<= 1'b0;
-					ff_so		<= 4'b1zz0;
-				end
-				else begin
-					ff_powerup_wait <= ff_powerup_wait + 14'd1;
-					ff_ce_n		<= 1'b1;
-					ff_so		<= 4'bzzzz;
-				end
-			end
 			c_state_init_eqio0: begin
 				ff_state	<= c_state_init_eqio1;
 				ff_so		<= 4'b1zz0;
@@ -238,10 +298,10 @@ module ssram (
 				ff_so		<= 4'b1zz0;
 			end
 			c_state_init_eqio7: begin
-				ff_state	<= c_state_idle;
-				ff_so		<= 4'bzzzz;
-				ff_active	<= 1'b1;		// Init complete (stays high)
-				ff_ce_n		<= 1'b1;
+				ff_state		<= c_state_idle;
+				ff_so			<= 4'bzzzz;
+				ff_init_done	<= 1'b1;
+				ff_ce_n			<= 1'b1;
 			end
 			//	IDLE -----------------------------------------------------------
 			c_state_idle: begin
@@ -249,10 +309,23 @@ module ssram (
 					//	1st nibble: 0000
 					ff_state	<= c_state_start;
 					ff_ce_n		<= 1'b0;
+					ff_sclk_en	<= 1'b1;
 					ff_so		<= 4'd0;
 					ff_address	<= ff_req_address_clk;
 					ff_write	<= ff_req_write_clk;
-					ff_active	<= 1'b0;
+					ff_burst	<= ff_req_burst_clk;
+				end
+			end
+			c_state_restart: begin
+				//	Read request after a burst write: keep CE# high, then start a new command.
+				if( ff_powerup_wait == 14'd3 ) begin
+					ff_state	<= c_state_start;
+					ff_ce_n		<= 1'b0;
+					ff_sclk_en	<= 1'b1;
+					ff_so		<= 4'd0;
+				end
+				else begin
+					ff_powerup_wait	<= ff_powerup_wait + 14'd1;
 				end
 			end
 			c_state_start: begin
@@ -315,11 +388,38 @@ module ssram (
 				ff_state	<= c_state_write1;
 			end
 			c_state_write1: begin
-				//	finish: BYTE WRITE
-				ff_so		<= 4'bzzzz;
-				ff_state	<= c_state_idle;
-				ff_active	<= 1'b1;
-				ff_ce_n		<= 1'b1;
+				ff_so			<= 4'bzzzz;
+				ff_ack_toggle	<= ~ff_ack_toggle;
+				if( ff_burst ) begin
+					//	keep CE# low and stop SCLK until the next sequential byte
+					ff_state	<= c_state_burst_wait;
+					ff_sclk_en	<= 1'b0;
+				end
+				else begin
+					//	finish: BYTE WRITE
+					ff_state	<= c_state_idle;
+					ff_ce_n		<= 1'b1;
+				end
+			end
+			c_state_burst_wait: begin
+				if( w_valid ) begin
+					if( ff_req_write_clk ) begin
+						//	next sequential byte: upper nibble
+						ff_state	<= c_state_write0;
+						ff_sclk_en	<= 1'b1;
+						ff_so		<= ff_req_wdata_clk[7:4];
+						ff_burst	<= ff_req_burst_clk;
+					end
+					else begin
+						//	a read request terminates the burst
+						ff_state	<= c_state_restart;
+						ff_ce_n		<= 1'b1;
+						ff_powerup_wait	<= 14'd0;
+						ff_address	<= ff_req_address_clk;
+						ff_write	<= 1'b0;
+						ff_burst	<= 1'b0;
+					end
+				end
 			end
 			// HIGH SPEED BYTE READ --------------------------------------------
 			c_state_dummy0: begin
@@ -369,10 +469,13 @@ module ssram (
 				ff_read			<= 1'b0;
 			end
 			c_state_read3: begin
-				if( ff_rdata_en ) begin
-					ff_state		<= c_state_idle;
-					ff_active		<= 1'b1;
-				end
+				//	ff_rdata is stable here; notify completion.
+				ff_state		<= c_state_idle;
+				ff_ack_toggle	<= ~ff_ack_toggle;
+			end
+			default: begin
+				ff_state		<= c_state_idle;
+				ff_ce_n			<= 1'b1;
 			end
 			endcase
 		end
@@ -393,34 +496,22 @@ module ssram (
 		end
 	end
 
+	// Registered SCLK (glitch free). ff_ce_n and ff_sclk_en change only when
+	// ff_sclk_div falls, so this equals ff_sclk_div & ~ff_ce_n & ff_sclk_en.
 	always @( posedge clk_serial ) begin
 		if( !n_reset ) begin
-			ff_read_complete <= 1'b0;
+			ff_sclk <= 1'b0;
 		end
-		else if( ff_read_complete && ff_rdata_en ) begin
-			ff_read_complete <= 1'b0;
-		end
-		else if( ff_state == c_state_read2 ) begin
-			ff_read_complete <= 1'b1;
+		else begin
+			ff_sclk <= ~ff_sclk_div & ~ff_ce_n & ff_sclk_en;
 		end
 	end
 
-	always @( posedge clk ) begin
-		if( !n_reset ) begin
-			ff_rdata_en <= 1'b0;
-		end
-		else if( ff_rdata_en ) begin
-			ff_rdata_en <= 1'b0;
-		end
-		else if( ff_read_complete ) begin
-			ff_rdata_en <= 1'b1;
-		end
-	end
-
-	assign sram_sclk	= ff_sclk_div & ~ff_ce_n;
+	assign sram_sclk	= ff_sclk;
 	assign sram_ce_n	= ff_ce_n;
 	assign sram_sio		= ff_read ? 4'bzzzz: ff_so;
-	assign bus_ready	= ff_ready;
+	assign bus_ready	= w_ready;
 	assign bus_rdata	= ff_rdata;
-	assign bus_rdata_en = ff_rdata_en;
+	//	ff_req_write_clk is not updated until the next request, which needs bus_ready.
+	assign bus_rdata_en	= (ff_ack_s2 != ff_ack_s3) & ~ff_req_write_clk;
 endmodule

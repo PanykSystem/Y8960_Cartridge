@@ -297,6 +297,7 @@ module tb ();
 	initial begin
 		logic			time_out;
 		logic	[7:0]	data;
+		integer			k;
 
 		test_no			= -1;
 		reset_n			= 0;
@@ -313,6 +314,35 @@ module tb ();
 
 		reset_n			= 1;
 		@( posedge clk );
+
+		for( k = 0; k < 4; k = k + 1 ) begin
+			write_io( 8'hB0, k * 4, time_out );
+			if( time_out ) $fatal( 1, "Timer index write timed out" );
+			write_io( 8'hB1, 8'h51, time_out );
+			if( time_out ) $fatal( 1, "Timer mode write timed out" );
+			read_io( 8'hB1, data, time_out );
+			if( time_out || data !== 8'h51 ) begin
+				$fatal( 1, "Timer %0d mode read = %02X, expected 51", k, data );
+			end
+		end
+		for( k = 0; k < 4; k = k + 1 ) begin
+			@( negedge clk );
+			bus_cs = 0;
+			bus_valid = 1;
+			bus_address = k;
+			repeat( 4 ) @( negedge clk );
+			if( bus_rdata_en !== 1'b0 || bus_rdata !== 8'hFF ) begin
+				$fatal( 1, "Unselected timer responds at address %0d", k );
+			end
+			bus_cs = 1;
+			bus_valid = 0;
+			repeat( 4 ) @( negedge clk );
+			if( bus_rdata_en !== 1'b0 || bus_rdata !== 8'hFF ) begin
+				$fatal( 1, "Timer responds without bus_valid at address %0d", k );
+			end
+		end
+		bus_cs = 0;
+		$display( "[PASS] Timer register reads and response isolation" );
 
 		test_pattern0( 0 );
 

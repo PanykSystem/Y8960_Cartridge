@@ -72,35 +72,28 @@ module tb ();
 	//	I/O port addresses
 	localparam	[7:0]	c_ssg1_io		= 8'hA0;
 	localparam	[7:0]	c_ssg2_io		= 8'hA2;
-	localparam	[7:0]	c_opll1_io		= 8'h7A;
-	localparam	[7:0]	c_opll2_io		= 8'h7C;
-	localparam	[7:0]	c_opl2_1_io		= 8'hC0;
-	localparam	[7:0]	c_opl2_2_io		= 8'hC2;
-	localparam	[7:0]	c_dcsg_io		= 8'h7E;
+	localparam	[7:0]	c_opll_io		= 8'h7C;
+	localparam	[7:0]	c_opl2_io		= 8'hC0;
 	localparam	[7:0]	c_timer1_io		= 8'hB0;
 	localparam	[7:0]	c_timer2_io		= 8'hB2;
 	localparam	[7:0]	c_sysctrl_io	= 8'h45;
 
 	//	Memory Mapped I/O addresses (7FE0h-7FFFh window)
-	localparam	[15:0]	c_ssg_mio		= 16'h7FEA;
-	localparam	[15:0]	c_opl2_1_mio	= 16'h7FEC;
-	localparam	[15:0]	c_opl2_2_mio	= 16'h7FEE;
-	localparam	[15:0]	c_dcsg_mio		= 16'h7FF0;
-	localparam	[15:0]	c_opll1_mio		= 16'h7FF2;
-	localparam	[15:0]	c_opll2_mio		= 16'h7FF4;
+	localparam	[15:0]	c_ssg_mio		= 16'h7FF0;
+	localparam	[15:0]	c_opl2_mio		= 16'h7FF2;
+	localparam	[15:0]	c_opll_mio		= 16'h7FF4;
 	localparam	[15:0]	c_io_en1_mio	= 16'h7FF6;
 	localparam	[15:0]	c_io_en2_mio	= 16'h7FFF;
 	localparam	[15:0]	c_normal_mem	= 16'h8000;
 
-	//	Chip select bit order: { timer, opll, opl2, ssg, scc, dcsg, sysctrl }
-	localparam	[6:0]	c_cs_none		= 7'b0000000;
-	localparam	[6:0]	c_cs_timer		= 7'b1000000;
-	localparam	[6:0]	c_cs_opll		= 7'b0100000;
-	localparam	[6:0]	c_cs_opl2		= 7'b0010000;
-	localparam	[6:0]	c_cs_ssg		= 7'b0001000;
-	localparam	[6:0]	c_cs_scc		= 7'b0000100;
-	localparam	[6:0]	c_cs_dcsg		= 7'b0000010;
-	localparam	[6:0]	c_cs_sysctrl	= 7'b0000001;
+	//	Chip select bit order: { timer, opll, opl2, ssg, scc, sysctrl }
+	localparam	[5:0]	c_cs_none		= 6'b000000;
+	localparam	[5:0]	c_cs_timer		= 6'b100000;
+	localparam	[5:0]	c_cs_opll		= 6'b010000;
+	localparam	[5:0]	c_cs_opl2		= 6'b001000;
+	localparam	[5:0]	c_cs_ssg		= 6'b000100;
+	localparam	[5:0]	c_cs_scc		= 6'b000010;
+	localparam	[5:0]	c_cs_sysctrl	= 6'b000001;
 
 	reg				clk;
 	reg				p_slot_clk;
@@ -128,9 +121,13 @@ module tb ();
 	wire			bus_opl2_cs;
 	wire			bus_ssg_cs;
 	wire			bus_scc_cs;
-	wire			bus_dcsg_cs;
 	wire			bus_sysctrl_cs;
 	reg				memory_io_en;
+	reg				mixer_reg_en;
+	wire	[7:0]	ssg_volume;
+	wire	[7:0]	opll_volume;
+	wire	[7:0]	opl2_volume;
+	wire	[7:0]	scc_volume;
 	wire	[3:0]	led;
 	string			s_state;
 	integer			error_count;
@@ -140,6 +137,7 @@ module tb ();
 	// --------------------------------------------------------------------
 	msx_slot u_msx_slot (
 		.clk					( clk					),
+		.slot_enable			( 1'b1					),
 		.reset_n				( reset_n				),
 		.p_slot_reset_n			( p_slot_reset_n		),
 		.p_slot_sltsl_n			( p_slot_sltsl_n		),
@@ -159,7 +157,12 @@ module tb ();
 		.bus_ready				( bus_ready				),
 		.bus_wdata				( bus_wdata				),
 		.bus_rdata				( 8'h00					),
-		.bus_rdata_en			( 1'b0					)
+		.bus_rdata_en			( 1'b0					),
+		.mixer_reg_en			( mixer_reg_en			),
+		.ssg_volume				( ssg_volume				),
+		.opll_volume			( opll_volume				),
+		.opl2_volume			( opl2_volume				),
+		.scc_volume				( scc_volume				)
 	);
 
 	y8960_address_decode u_y8960_address_decode (
@@ -176,14 +179,12 @@ module tb ();
 		.bus_opl2_cs			( bus_opl2_cs			),
 		.bus_ssg_cs				( bus_ssg_cs			),
 		.bus_scc_cs				( bus_scc_cs			),
-		.bus_dcsg_cs			( bus_dcsg_cs			),
 		.bus_sysctrl_cs			( bus_sysctrl_cs		),
 		.bus_timer_ready		( 1'b1					),
 		.bus_opll_ready			( 1'b1					),
 		.bus_opl2_ready			( 1'b1					),
 		.bus_ssg_ready			( 1'b1					),
 		.bus_scc_ready			( 1'b1					),
-		.bus_dcsg_ready			( 1'b1					),
 		.bus_sysctrl_ready		( 1'b1					),
 		.memory_io_en			( memory_io_en			),
 		.led					( led					)
@@ -217,7 +218,7 @@ module tb ();
 			ff_cap_wdata	<= bus_wdata;
 			ff_cap_io		<= bus_io;
 			ff_cap_write	<= bus_write;
-			ff_cap_cs		<= { bus_timer_cs, bus_opll_cs, bus_opl2_cs, bus_ssg_cs, bus_scc_cs, bus_dcsg_cs, bus_sysctrl_cs };
+			ff_cap_cs		<= { bus_timer_cs, bus_opll_cs, bus_opl2_cs, bus_ssg_cs, bus_scc_cs, bus_sysctrl_cs };
 		end
 	end
 
@@ -504,7 +505,7 @@ module tb ();
 		if( !assert_sltsl ) begin
 			check( $sformatf( "write_mem %-12s (SLTSL not asserted) bus_valid never asserted", name ), ff_saw_bus_valid == 1'b0 );
 			check( $sformatf( "write_mem %-12s (SLTSL not asserted) all cs == 0", name ),
-				{ bus_timer_cs, bus_opll_cs, bus_opl2_cs, bus_ssg_cs, bus_scc_cs, bus_dcsg_cs, bus_sysctrl_cs } == c_cs_none );
+				{ bus_timer_cs, bus_opll_cs, bus_opl2_cs, bus_ssg_cs, bus_scc_cs, bus_sysctrl_cs } == c_cs_none );
 		end
 		else begin
 			check( $sformatf( "write_mem %-12s address=%04h wdata=%02h expected_cs=%07b actual_cs=%07b", name, address, wdata, expected_cs, ff_cap_cs ),
@@ -539,6 +540,7 @@ module tb ();
 		p_slot_address		= 0;
 		int_n				= 1;
 		memory_io_en		= 1'b0;
+		mixer_reg_en		= 1'b0;
 		error_count			= 0;
 
 		@( posedge clk );
@@ -554,27 +556,23 @@ module tb ();
 		//	Enable every I/O port through the memory mapped enabler registers
 		//	(ssg / opll1 are already enabled by reset default).
 		// --------------------------------------------------------------------
-		write_io_enabler( c_io_en1_mio, 8'b0000_0011 );	//	opll1_io_en, opll2_io_en
-		write_io_enabler( c_io_en2_mio, 8'b1001_1111 );	//	opl2_1/2, dcsg1/2, ssg, timer
+		write_io_enabler( c_io_en1_mio, 8'b0000_0001 );	//	opll_io_en
+		write_io_enabler( c_io_en2_mio, 8'b1000_0011 );	//	opl2, ssg, timer
 
 		// --------------------------------------------------------------------
 		//	Supported I/O access
 		// --------------------------------------------------------------------
 		write_io( c_ssg1_io,    8'h11, c_cs_ssg,     "ssg1"     );
 		write_io( c_ssg2_io,    8'h12, c_cs_ssg,     "ssg2"     );
-		write_io( c_opll1_io,   8'h13, c_cs_opll,    "opll1"    );
-		write_io( c_opll2_io,   8'h14, c_cs_opll,    "opll2"    );
-		write_io( c_opl2_1_io,  8'h15, c_cs_opl2,    "opl2_1"   );
-		write_io( c_opl2_2_io,  8'h16, c_cs_opl2,    "opl2_2"   );
-		write_io( c_dcsg_io,    8'h17, c_cs_dcsg,    "dcsg"     );
+		write_io( c_opll_io,    8'h13, c_cs_opll,    "opll"     );
+		write_io( c_opl2_io,    8'h15, c_cs_opl2,    "opl2"     );
 		write_io( c_timer1_io,  8'h18, c_cs_timer,   "timer1"   );
 		write_io( c_timer2_io,  8'h19, c_cs_timer,   "timer2"   );
 		write_io( c_sysctrl_io, 8'h1A, c_cs_sysctrl, "sysctrl"  );
 
 		read_io( c_ssg1_io,    c_cs_ssg,     "ssg1"     );
-		read_io( c_opll1_io,   c_cs_opll,    "opll1"    );
-		read_io( c_opl2_1_io,  c_cs_opl2,    "opl2_1"   );
-		read_io( c_dcsg_io,    c_cs_dcsg,    "dcsg"     );
+		read_io( c_opll_io,    c_cs_opll,    "opll"     );
+		read_io( c_opl2_io,    c_cs_opl2,    "opl2"     );
 		read_io( c_timer1_io,  c_cs_timer,   "timer1"   );
 		read_io( c_sysctrl_io, c_cs_sysctrl, "sysctrl"  );
 
@@ -582,11 +580,8 @@ module tb ();
 		//	Supported Memory access (Memory Mapped I/O window + plain memory)
 		// --------------------------------------------------------------------
 		write_mem( c_ssg_mio,     8'h21, c_cs_ssg,  1'b1, "ssg_mio"    );
-		write_mem( c_opl2_1_mio,  8'h22, c_cs_opl2, 1'b1, "opl2_1_mio" );
-		write_mem( c_opl2_2_mio,  8'h23, c_cs_opl2, 1'b1, "opl2_2_mio" );
-		write_mem( c_dcsg_mio,    8'h24, c_cs_dcsg, 1'b1, "dcsg_mio"   );
-		write_mem( c_opll1_mio,   8'h25, c_cs_opll, 1'b1, "opll1_mio"  );
-		write_mem( c_opll2_mio,   8'h26, c_cs_opll, 1'b1, "opll2_mio"  );
+		write_mem( c_opl2_mio,    8'h22, c_cs_opl2, 1'b1, "opl2_mio"   );
+		write_mem( c_opll_mio,    8'h25, c_cs_opll, 1'b1, "opll_mio"   );
 		write_mem( c_normal_mem,  8'h27, c_cs_scc,  1'b1, "normal_mem" );
 
 		// --------------------------------------------------------------------

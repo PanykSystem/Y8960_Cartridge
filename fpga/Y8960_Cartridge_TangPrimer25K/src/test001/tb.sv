@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------------
-//	Test of dual_ssg.v
+//	Top-level System Controller detection test
 //	Copyright (C)2026 Takayuki Hara (HRA!)
 //	
 //	 Permission is hereby granted, free of charge, to any person obtaining a 
@@ -21,7 +21,7 @@
 //	in the Software.
 // -----------------------------------------------------------------------------
 //	Description:
-//		Pulse wave modulation
+//		MSX slot -> address decoder -> System Controller -> MSX data bus
 // -----------------------------------------------------------------------------
 
 module tb ();
@@ -129,7 +129,7 @@ module tb ();
 	//	Task
 	// --------------------------------------------------------------------
 	task write_io(
-		input	[7:0]	address,
+		input	[15:0]	address,
 		input	[7:0]	wdata
 	);
 		fork
@@ -265,7 +265,7 @@ module tb ();
 
 	// --------------------------------------------------------------------
 	task read_io(
-		input	[7:0]	address,
+		input	[15:0]	address,
 		output	[7:0]	rdata
 	);
 		fork
@@ -328,20 +328,32 @@ module tb ();
 	// --------------------------------------------------------------------
 	//	Test bench
 	// --------------------------------------------------------------------
+	task check_isolated;
+		if( slot_wait !== 1'b0 || slot_intr !== 1'b0 ||
+			slot_busdir !== 1'b0 || u_dut.w_bus_valid !== 1'b0 ||
+			(slot_wr_n && slot_d !== 8'hZZ) ) begin
+			$fatal( 1, "Disconnected slot drives or accepts a bus cycle" );
+		end
+	endtask
+
 	initial begin
 		logic			time_out;
 		logic	[7:0]	data;
+		integer			errors;
 
 		test_no = -1;
+		errors = 0;
 		clk = 1;
 		slot_reset_n = 0;
 		slot_a = 0;
-		slot_sltsl_n = 0;
-		slot_mereq_n = 0;
-		slot_ioreq_n = 0;
-		slot_wr_n = 0;
-		slot_rd_n = 0;
-		dipsw = 0;
+		slot_sltsl_n = 1;
+		slot_mereq_n = 1;
+		slot_ioreq_n = 1;
+		slot_wr_n = 1;
+		slot_rd_n = 1;
+		p_slot_clk = 0;
+		ff_slot_data = 0;
+		dipsw = 2'b10;
 
 		@( negedge clk );
 		@( negedge clk );
@@ -352,6 +364,163 @@ module tb ();
 		@( posedge clk );
 
 		repeat( 100 ) @( posedge clk );
+		force u_dut.w_int_n = 1'b0;
+		check_isolated();
+		release u_dut.w_int_n;
+		write_io( 16'h8040, 8'h80 );
+		read_io( 16'h0040, data );
+		if( data !== 8'hZZ || u_dut.u_system_controller.ff_enable !== 1'b0 ) begin
+			$fatal( 1, "DIP OFF did not block I/O reads/writes" );
+		end
+		slot_a = 16'h4000;
+		slot_sltsl_n = 0;
+		slot_mereq_n = 0;
+		slot_rd_n = 0;
+		repeat( 20 ) @( negedge u_dut.clk_42m );
+		check_isolated();
+		if( u_dut.w_cpu_valid !== 1'b0 ) $fatal( 1, "DIP OFF issued a memory read" );
+		slot_rd_n = 1;
+		slot_a = 16'h5000;
+		ff_slot_data = 8'h05;
+		slot_wr_n = 0;
+		repeat( 20 ) @( negedge u_dut.clk_42m );
+		check_isolated();
+		slot_wr_n = 1;
+		slot_sltsl_n = 1;
+		slot_mereq_n = 1;
+
+		// Reject switch bounce, and never connect halfway through a read.
+		for( j = 0; j < 3; j = j + 1 ) begin
+			dipsw[1] = 0;
+			repeat( 100 ) @( negedge u_dut.clk_42m );
+			dipsw[1] = 1;
+			repeat( 100 ) @( negedge u_dut.clk_42m );
+			check_isolated();
+		end
+		slot_a = 16'h0098;
+		slot_ioreq_n = 0;
+		slot_rd_n = 0;
+		dipsw[1] = 0;
+		#2ms;
+		if( !u_dut.ff_slot_connect_request || u_dut.ff_slot_connected ) begin
+			$fatal( 1, "Connection did not wait for the active read to end" );
+		end
+		check_isolated();
+		slot_ioreq_n = 1;
+		slot_rd_n = 1;
+		repeat( 10 ) @( negedge u_dut.clk_42m );
+		if( !u_dut.ff_slot_connected || u_dut.w_bus_valid ) begin
+			$fatal( 1, "Idle connection failed or generated a phantom access" );
+		end
+		if( slot_wait !== 1'b1 || u_dut.w_wait_n !== 1'b0 ) begin
+			$fatal( 1, "Connected slot did not wait for the running boot copy" );
+		end
+		force u_dut.w_int_n = 1'b0;
+		#1ns;
+		if( slot_intr !== 1'b1 ) $fatal( 1, "Connected interrupt was blocked" );
+		release u_dut.w_int_n;
+		$display( "[PASS] DIP OFF isolation, debounce, idle-only connection and boot WAIT" );
+
+		// Z80 immediate I/O places A on A15-A8; only A7-A0 select the port.
+		write_io( 16'h8040, 8'h80 );
+		read_io( 16'h8040, data );
+		if( data !== 8'h7F ) begin
+			$display( "[ERROR] 40h = %02X, expected 7F (enable=%b, rdata_en=%b, busdir=%b)",
+				data, u_dut.u_system_controller.ff_enable,
+				u_dut.w_bus_sysctrl_rdata_en, slot_busdir );
+			errors = errors + 1;
+		end
+		write_io( 8'h41, 8'h02 );
+		read_io( 8'h41, data );
+		if( data !== 8'hFD ) begin
+			$display( "[ERROR] 41h = %02X, expected FD", data );
+			errors = errors + 1;
+		end
+		write_io( 8'h42, 8'h01 );
+		read_io( 8'h42, data );
+		if( data !== 8'hFE ) begin
+			$display( "[ERROR] 42h = %02X, expected FE", data );
+			errors = errors + 1;
+		end
+		write_io( 8'h40, 8'h00 );
+		read_io( 8'h40, data );
+		if( data !== 8'hZZ ) begin
+			$display( "[ERROR] disabled 40h drives %02X", data );
+			errors = errors + 1;
+		end
+		for( i = 0; i < 4; i = i + 1 ) begin
+			read_io( 16'h0040 + i, data );
+			if( data !== 8'hZZ ) begin
+				$display( "[ERROR] disabled port %04X drives %02X", 16'h0040 + i, data );
+				errors = errors + 1;
+			end
+		end
+		read_io( 16'h0098, data );
+		if( data !== 8'hZZ ) begin
+			$display( "[ERROR] foreign port 98h drives %02X", data );
+			errors = errors + 1;
+		end
+
+		// Disconnect a driven read and reject subsequent writes without resetting
+		// the controller or starting another boot copy.
+		write_io( 16'h0040, 8'h80 );
+		slot_a = 16'h0040;
+		slot_ioreq_n = 0;
+		slot_rd_n = 0;
+		repeat( 10 ) @( negedge u_dut.clk_42m );
+		if( slot_d !== 8'h7F || !slot_busdir ) $fatal( 1, "Read did not start" );
+		dipsw[1] = 1;
+		#2ms;
+		check_isolated();
+		if( u_dut.u_msx_slot.ff_rdata_en ) $fatal( 1, "Disconnect retained read enable" );
+		slot_ioreq_n = 1;
+		slot_rd_n = 1;
+		write_io( 16'h0040, 8'h00 );
+		if( u_dut.u_system_controller.ff_enable !== 1'b1 ) begin
+			$fatal( 1, "DIP OFF write changed the controller state" );
+		end
+		slot_a = 16'h0040;
+		ff_slot_data = 8'h00;
+		slot_ioreq_n = 0;
+		slot_wr_n = 0;
+		dipsw[1] = 0;
+		#2ms;
+		check_isolated();
+		if( !u_dut.ff_slot_connect_request || u_dut.ff_slot_connected ) begin
+			$fatal( 1, "Connection did not wait for the active write to end" );
+		end
+		slot_ioreq_n = 1;
+		slot_wr_n = 1;
+		repeat( 10 ) @( negedge u_dut.clk_42m );
+		read_io( 16'h0040, data );
+		if( data !== 8'h7F ) $fatal( 1, "Reconnect lost the controller state" );
+		$display( "[PASS] Disconnect during read, output release and idle-only write reconnection" );
+		wait( u_dut.w_wait_n === 1'b1 );
+		repeat( 20 ) @( negedge u_dut.clk_42m );
+		if( slot_wait !== 1'b0 ) $fatal( 1, "Boot copy did not release WAIT" );
+		slot_a = 16'h4000;
+		slot_sltsl_n = 0;
+		slot_mereq_n = 0;
+		slot_rd_n = 0;
+		repeat( 100 ) @( negedge u_dut.clk_42m );
+		if( slot_d !== 8'hFF || slot_busdir !== 1'b1 || slot_wait !== 1'b0 ) begin
+			$fatal( 1, "Connected ROM read failed after boot copy" );
+		end
+		slot_sltsl_n = 1;
+		slot_mereq_n = 1;
+		slot_rd_n = 1;
+		$display( "[PASS] Boot copy completed without reset and connected ROM read succeeded" );
+		if( errors == 0 ) begin
+			$display( "[RESULT] System Controller detection through MSX slot: PASS" );
+		end
+		else begin
+			$fatal( 1, "System Controller detection: %0d errors", errors );
+		end
 		$finish;
+	end
+
+	initial begin
+		#40ms;
+		$fatal( 1, "Top-level bus test timed out" );
 	end
 endmodule

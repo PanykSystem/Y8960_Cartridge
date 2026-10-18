@@ -12,11 +12,11 @@ vlog ..\..\adpcm\src\jt10_adpcm_drvB.v
 
 vlog ..\..\adpcm_patch\adpcm.v
 
-vlog ..\..\opl2\src\jtopl.v
-vlog ..\..\opl2\src\jtopl2.v
-vlog ..\..\opl2\src\jtopl_acc.v
+vlog ..\jtopl.v
+vlog ..\jtopl2.v
+vlog ..\jtopl_acc.v
 vlog ..\..\opl2\src\jtopl_csr.v
-vlog ..\..\opl2\src\jtopl_div.v
+vlog +define+SIMULATION ..\..\opl2\src\jtopl_div.v
 vlog ..\..\opl2\src\jtopl_eg.v
 vlog ..\..\opl2\src\jtopl_eg_cnt.v
 vlog ..\..\opl2\src\jtopl_eg_comb.v
@@ -27,9 +27,9 @@ vlog ..\..\opl2\src\jtopl_eg_step.v
 vlog ..\..\opl2\src\jtopl_exprom.v
 vlog ..\..\opl2\src\jtopl_lfo.v
 vlog ..\..\opl2\src\jtopl_logsin.v
-vlog ..\..\opl2\src\jtopl_mmr.v
+vlog ..\jtopl_mmr.v
 vlog ..\..\opl2\src\jtopl_noise.v
-vlog ..\..\opl2\src\jtopl_op.v
+vlog ..\jtopl_op.v
 vlog ..\..\opl2\src\jtopl_pg.v
 vlog ..\..\opl2\src\jtopl_pg_comb.v
 vlog ..\..\opl2\src\jtopl_pg_inc.v
@@ -41,9 +41,10 @@ vlog ..\..\opl2\src\jtopl_reg_ch.v
 vlog ..\..\opl2\src\jtopl_sh.v
 vlog ..\..\opl2\src\jtopl_sh_rst.v
 vlog ..\..\opl2\src\jtopl_single_acc.v
-vlog ..\..\opl2\src\jtopl_slot_cnt.v
+vlog +define+SIMULATION ..\..\opl2\src\jtopl_slot_cnt.v
 vlog ..\..\opl2\src\jtopl_timers.v
 
+vlog ..\..\pan\pan_lut.v
 vlog ..\opl2.v
 if errorlevel 1 (
 	pause

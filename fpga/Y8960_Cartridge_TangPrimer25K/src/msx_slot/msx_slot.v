@@ -58,6 +58,7 @@
 module msx_slot(
 	input			clk,
 	output			reset_n,
+	input			slot_enable,
 	//	MSX Slot Signal
 	input			p_slot_reset_n,
 	input			p_slot_sltsl_n,
@@ -78,7 +79,13 @@ module msx_slot(
 	input			bus_ready,
 	output	[7:0]	bus_wdata,
 	input	[7:0]	bus_rdata,
-	input			bus_rdata_en
+	input			bus_rdata_en,
+	//	Mixer volume registers (7FF7h-7FFAh)
+	input			mixer_reg_en,
+	output	[7:0]	ssg_volume,
+	output	[7:0]	opll_volume,
+	output	[7:0]	opl2_volume,
+	output	[7:0]	scc_volume
 );
 	reg				ff_slot_reset_n			= 1'b0;
 	reg				ff_slot_io_wr			= 1'b0;
@@ -89,6 +96,9 @@ module msx_slot(
 	reg				ff_slot_mem_rd			= 1'b0;
 	reg				ff_slot_mem_wr_delay	= 1'b0;
 	reg				ff_slot_mem_rd_delay	= 1'b0;
+	reg		[2:0]	ff_slot_wr_count		= 3'd0;
+	wire			w_slot_wr;
+	wire			w_wr_start;
 	wire			w_io_valid;
 	wire			w_mem_valid;
 
@@ -101,6 +111,12 @@ module msx_slot(
 	reg				ff_io					= 1'b0;
 	reg		[7:0]	ff_rdata				= 8'd0;
 	reg				ff_rdata_en				= 1'b0;
+	reg		[7:0]	ff_ssg_volume			= 8'd128;
+	reg		[7:0]	ff_opll_volume			= 8'd128;
+	reg		[7:0]	ff_opl2_volume			= 8'd128;
+	reg		[7:0]	ff_scc_volume			= 8'd128;
+	wire			w_mixer_address;
+	wire			w_mixer_access;
 
 	// --------------------------------------------------------------------
 	//	Pass through FF once for asynchronous replacement.
@@ -136,7 +152,7 @@ module msx_slot(
 	//	Transaction active signal
 	// --------------------------------------------------------------------
 	always @( posedge clk ) begin
-		if( !ff_slot_reset_n ) begin
+		if( !ff_slot_reset_n || !slot_enable ) begin
 			ff_active		<= 1'b0;
 		end
 		else if( ff_active ) begin
@@ -150,23 +166,44 @@ module msx_slot(
 	end
 
 	assign w_active		= w_io_valid | w_mem_valid;
+	//	7FF7h: SSG, 7FF8h: OPLL, 7FF9h: OPL2, 7FFAh: SCC
+	assign w_mixer_address	= (ff_slot_address[15:4] == 12'h7FF) && (ff_slot_address[3:0] >= 4'd7) && (ff_slot_address[3:0] <= 4'd10);
+	assign w_mixer_access	= slot_enable && ff_valid && !ff_io && ff_write && mixer_reg_en && w_mixer_address;
 
 	// --------------------------------------------------------------------
 	//	Local BUS transaction
 	// --------------------------------------------------------------------
-	assign w_io_valid	= (ff_slot_io_wr  & ~ff_slot_io_wr_delay ) |
+	//	Write data is sampled c_wr_delay+1 clocks (about 93-116ns) after /WR is
+	//	detected, not right after it: data on the slot may settle later than /WR.
+	//	Reads keep the immediate start because they may need /WAIT.
+	localparam		[2:0]	c_wr_delay	= 3'd3;
+
+	assign w_slot_wr	= ff_slot_io_wr | ff_slot_mem_wr;
+
+	always @( posedge clk ) begin
+		if( !w_slot_wr ) begin
+			ff_slot_wr_count	<= 3'd0;
+		end
+		else if( ff_slot_wr_count != 3'd7 ) begin
+			ff_slot_wr_count	<= ff_slot_wr_count + 3'd1;
+		end
+	end
+
+	assign w_wr_start	= w_slot_wr & (ff_slot_wr_count == c_wr_delay);
+
+	assign w_io_valid	= (ff_slot_io_wr  & w_wr_start           ) |
 						  (ff_slot_io_rd  & ~ff_slot_io_rd_delay );
-	assign w_mem_valid	= (ff_slot_mem_wr & ~ff_slot_mem_wr_delay) |
+	assign w_mem_valid	= (ff_slot_mem_wr & w_wr_start           ) |
 						  (ff_slot_mem_rd & ~ff_slot_mem_rd_delay);
 
 	always @( posedge clk ) begin
-		if( !ff_slot_reset_n ) begin
+		if( !ff_slot_reset_n || !slot_enable ) begin
 			ff_valid	<= 1'b0;
 			ff_write	<= 1'b1;
 			ff_io		<= 1'b0;
 		end
 		else if( ff_valid ) begin
-			if( bus_ready || (!ff_slot_io_wr && !ff_slot_io_rd && !ff_slot_mem_wr && !ff_slot_mem_rd) ) begin
+			if( bus_ready || w_mixer_access || (!ff_slot_io_wr && !ff_slot_io_rd && !ff_slot_mem_wr && !ff_slot_mem_rd) ) begin
 				ff_valid	<= 1'b0;
 			end
 		end
@@ -181,15 +218,19 @@ module msx_slot(
 	//	Read data
 	// --------------------------------------------------------------------
 	always @( posedge clk ) begin
-		if( !ff_slot_reset_n ) begin
+		if( !ff_slot_reset_n || !slot_enable ) begin
 			ff_rdata	<= 8'h00;
+			ff_rdata_en	<= 1'b0;
 		end
 		else if( ff_rdata_en ) begin
 			if( !ff_slot_io_wr && !ff_slot_io_rd && !ff_slot_mem_wr && !ff_slot_mem_rd ) begin
 				ff_rdata_en	<= 1'b0;
 			end
 		end
-		else if( ff_active && bus_rdata_en ) begin
+		else if( ff_active && !ff_write && bus_rdata_en && (ff_slot_io_rd || ff_slot_mem_rd) ) begin
+			//	Only a read cycle that is still active may drive the data bus.
+			//	A late response (e.g. SerialSRAM read without /WAIT) arriving in a
+			//	write cycle or after the read cycle has ended is discarded.
 			ff_rdata	<= bus_rdata;
 			ff_rdata_en	<= 1'b1;
 		end
@@ -199,10 +240,33 @@ module msx_slot(
 	assign bus_wdata		= ff_slot_data;
 	assign bus_io			= ff_io;
 	assign bus_write		= ff_write;
-	assign bus_valid		= ff_valid;
-	assign p_slot_int		= ~int_n;
+	assign bus_valid		= slot_enable & ff_valid & ~w_mixer_access;
+	assign p_slot_int		= slot_enable & ~int_n;
 
 	//	0: Cartridge <- CPU (Write or Idle), 1: Cartridge -> CPU (Read)
-	assign p_slot_data		= ff_rdata_en ? ff_rdata: 8'hZZ;
-	assign p_slot_data_dir	= ff_rdata_en ? 1'b1 : 1'b0;
+	assign p_slot_data		= (slot_enable && ff_rdata_en) ? ff_rdata: 8'hZZ;
+	assign p_slot_data_dir	= slot_enable & ff_rdata_en;
+
+	always @( posedge clk ) begin
+		if( !ff_slot_reset_n ) begin
+			ff_ssg_volume	<= 8'd128;
+			ff_opll_volume	<= 8'd128;
+			ff_opl2_volume	<= 8'd128;
+			ff_scc_volume	<= 8'd128;
+		end
+		else if( w_mixer_access ) begin
+			case( ff_slot_address[3:0] )
+				4'd7:  ff_ssg_volume	<= ff_slot_data;
+				4'd8:  ff_opll_volume	<= ff_slot_data;
+				4'd9:  ff_opl2_volume	<= ff_slot_data;
+				4'd10: ff_scc_volume	<= ff_slot_data;
+				default: ;
+			endcase
+		end
+	end
+
+	assign ssg_volume	= ff_ssg_volume;
+	assign opll_volume	= ff_opll_volume;
+	assign opl2_volume	= ff_opl2_volume;
+	assign scc_volume	= ff_scc_volume;
 endmodule

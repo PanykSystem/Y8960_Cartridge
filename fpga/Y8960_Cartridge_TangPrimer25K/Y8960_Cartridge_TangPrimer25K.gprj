@@ -16,14 +16,14 @@
         <File path="src/gowin_pll/gowin_pll.v" type="file.verilog" enable="1"/>
         <File path="src/gowin_pll/gowin_pll_mod.v" type="file.verilog" enable="1"/>
         <File path="src/i2s_audio/i2s_audio.v" type="file.verilog" enable="1"/>
-        <File path="src/ikaopll/src/IKAOPLL.v" type="file.verilog" enable="1"/>
-        <File path="src/ikaopll/src/IKAOPLL_modules/IKAOPLL_dac.v" type="file.verilog" enable="1"/>
         <File path="src/ikaopll/src/IKAOPLL_modules/IKAOPLL_eg.v" type="file.verilog" enable="1"/>
         <File path="src/ikaopll/src/IKAOPLL_modules/IKAOPLL_lfo.v" type="file.verilog" enable="1"/>
         <File path="src/ikaopll/src/IKAOPLL_modules/IKAOPLL_op.v" type="file.verilog" enable="1"/>
         <File path="src/ikaopll/src/IKAOPLL_modules/IKAOPLL_pg.v" type="file.verilog" enable="1"/>
         <File path="src/ikaopll/src/IKAOPLL_modules/IKAOPLL_primitives.v" type="file.verilog" enable="1"/>
         <File path="src/ikaopll/src/IKAOPLL_modules/IKAOPLL_timinggen.v" type="file.verilog" enable="1"/>
+        <File path="src/ikaopll_patch/IKAOPLL.v" type="file.verilog" enable="1"/>
+        <File path="src/ikaopll_patch/IKAOPLL_modules/IKAOPLL_dac.v" type="file.verilog" enable="1"/>
         <File path="src/ikaopll_patch/IKAOPLL_reg.v" type="file.verilog" enable="1"/>
         <File path="src/ikaopll_patch/opll.v" type="file.verilog" enable="1"/>
         <File path="src/ikascc/src/IKASCC.v" type="file.verilog" enable="1"/>
@@ -33,9 +33,10 @@
         <File path="src/ikascc_patch/scc.v" type="file.verilog" enable="1"/>
         <File path="src/ikascc_patch/scc_bank.v" type="file.verilog" enable="1"/>
         <File path="src/msx_slot/msx_slot.v" type="file.verilog" enable="1"/>
-        <File path="src/opl2/src/jtopl.v" type="file.verilog" enable="1"/>
-        <File path="src/opl2/src/jtopl2.v" type="file.verilog" enable="1"/>
-        <File path="src/opl2/src/jtopl_acc.v" type="file.verilog" enable="1"/>
+        <File path="src/mixer/mixier.v" type="file.verilog" enable="1"/>
+        <File path="src/opl2_patch/jtopl.v" type="file.verilog" enable="1"/>
+        <File path="src/opl2_patch/jtopl2.v" type="file.verilog" enable="1"/>
+        <File path="src/opl2_patch/jtopl_acc.v" type="file.verilog" enable="1"/>
         <File path="src/opl2/src/jtopl_csr.v" type="file.verilog" enable="1"/>
         <File path="src/opl2/src/jtopl_div.v" type="file.verilog" enable="1"/>
         <File path="src/opl2/src/jtopl_eg.v" type="file.verilog" enable="1"/>
@@ -48,9 +49,9 @@
         <File path="src/opl2/src/jtopl_exprom.v" type="file.verilog" enable="1"/>
         <File path="src/opl2/src/jtopl_lfo.v" type="file.verilog" enable="1"/>
         <File path="src/opl2/src/jtopl_logsin.v" type="file.verilog" enable="1"/>
-        <File path="src/opl2/src/jtopl_mmr.v" type="file.verilog" enable="1"/>
+        <File path="src/opl2_patch/jtopl_mmr.v" type="file.verilog" enable="1"/>
         <File path="src/opl2/src/jtopl_noise.v" type="file.verilog" enable="1"/>
-        <File path="src/opl2/src/jtopl_op.v" type="file.verilog" enable="1"/>
+        <File path="src/opl2_patch/jtopl_op.v" type="file.verilog" enable="1"/>
         <File path="src/opl2/src/jtopl_pg.v" type="file.verilog" enable="1"/>
         <File path="src/opl2/src/jtopl_pg_comb.v" type="file.verilog" enable="1"/>
         <File path="src/opl2/src/jtopl_pg_inc.v" type="file.verilog" enable="1"/>
@@ -65,9 +66,9 @@
         <File path="src/opl2/src/jtopl_slot_cnt.v" type="file.verilog" enable="1"/>
         <File path="src/opl2/src/jtopl_timers.v" type="file.verilog" enable="1"/>
         <File path="src/opl2_patch/opl2.v" type="file.verilog" enable="1"/>
+        <File path="src/pan/pan_lut.v" type="file.verilog" enable="1"/>
         <File path="src/pll_init.v" type="file.verilog" enable="1"/>
         <File path="src/sfrom/sfrom.v" type="file.verilog" enable="1"/>
-        <File path="src/sn76489_audio_patch/sn76489.v" type="file.verilog" enable="1"/>
         <File path="src/spi_rom/ip_spi_rom.v" type="file.verilog" enable="1"/>
         <File path="src/ssg/dual_ssg.v" type="file.verilog" enable="1"/>
         <File path="src/ssg/ssg_core.v" type="file.verilog" enable="1"/>
@@ -78,7 +79,6 @@
         <File path="src/timer/msx_timer_core.v" type="file.verilog" enable="1"/>
         <File path="src/y8960_address_decode/y8960_address_decode.v" type="file.verilog" enable="1"/>
         <File path="src/y8960_cartridge_tangprimer25k.v" type="file.verilog" enable="1"/>
-        <File path="src/sn76489_audio/src/sn76489_audio.vhd" type="file.vhdl" enable="1"/>
         <File path="src/Y8960_Cartridge_TangPrimer25K.cst" type="file.cst" enable="1"/>
         <File path="src/Y8960_Cartridge_TangPrimer25K.sdc" type="file.sdc" enable="1"/>
         <File path="src/i2s_audio/i2s_audio.txt" type="file.other" enable="1"/>

@@ -10,12 +10,13 @@
 //	  SPI mode:
 //	    - EQIO  (0x38): Enable Quad I/O mode (SPI -> QPI)
 //	  Quad I/O mode:
-//	    - Write (0x02): Quad Write
-//	    - Read  (0x0B): Quad Fast Read (3 dummy cycles)
+//	    - Write (0x02): Quad Write (sequential)
+//	    - Read  (0x0B): Quad Fast Read (6 dummy cycles = 3 dummy bytes)
+//	    - RSTIO (0xFF): Reset Quad I/O (QPI -> SPI)
 //
 //	Protocol (Quad mode):
 //	  Write: [2 cmd nibbles][6 addr nibbles][2 data nibbles]  = 10 SCLK
-//	  Read:  [2 cmd nibbles][6 addr nibbles][3 dummy][2 data] = 13 SCLK
+//	  Read:  [2 cmd nibbles][6 addr nibbles][6 dummy][2 data] = 16 SCLK
 //
 //	Memory size: 512KB (19-bit address, 8-bit data)
 //
@@ -35,6 +36,8 @@ module ssram_test_model (
 	//	Parameters
 	// ---------------------------------------------------------------
 	parameter		MEM_SIZE	= 512 * 1024;	//	512KB
+	parameter		VERBOSE		= 1;			//	0: suppress per-byte messages
+	parameter		T_V			= 7000;			//	Output Valid from Clock Low (23AA04M 143MHz: max 7ns). Unit = simulator resolution (vsim -t 1ps)
 
 	// ---------------------------------------------------------------
 	//	Memory array
@@ -89,12 +92,17 @@ module ssram_test_model (
 		end
 		else begin
 			// ------ Quad mode: finalize transaction ------
-			if( cmd == 8'h0B && driving ) begin
+			if( count == 2 && cmd == 8'hFF ) begin
+				quad_mode <= 1'b0;
+				$display( "[SRAM Model] RSTIO command (0xFF) received. Returning to SPI mode." );
+			end
+			else if( cmd == 8'h0B && driving && VERBOSE ) begin
 				$display( "[SRAM Model] Read complete: addr=0x%05X data=0x%02X", addr, rd_data );
 			end
 		end
 
 		// Reset state for next transaction
+		cmd			<= 8'd0;
 		driving		<= 1'b0;
 		sio_out		<= 4'bzzzz;
 		count		<= 0;
@@ -118,10 +126,13 @@ module ssram_test_model (
 	//	  count  9: wr_data[3:0]    (write data lower nibble)
 	//	  --- Read (0x0B) ---
 	//	  count  8: dummy cycle 1   (also: load rd_data from memory)
-	//	  count  9: dummy cycle 2
-	//	  count 10: dummy cycle 3
-	//	  count 11: (model drives rd_data[7:4] -- sampled by master here)
-	//	  count 12: (model drives rd_data[3:0] -- sampled by master here)
+	//	  count  9-13: dummy cycle 2-6 (3 dummy bytes, DS20006862 Figure 3-16)
+	//	  count 14: rd_data[7:4] (driven T_V after the falling edge of clock 13)
+	//	  count 15: rd_data[3:0] (driven T_V after the falling edge of clock 14)
+	//	  count 16-: next sequential bytes
+	//	Note: the old data is held until T_V after the falling edge (optimistic
+	//	      hold). At SCLK=85.9MHz the low time (5.8ns) is shorter than T_V,
+	//	      so ssram.v samples nibble N at the rising edge of clock N+1.
 	//
 	always @( posedge sclk ) begin
 		if( !cs_n ) begin
@@ -156,7 +167,9 @@ module ssram_test_model (
 						else begin
 							// Odd count (9, 11, 13, ...): capture lower nibble & commit
 							mem[addr]		<= { wr_data[7:4], sio };
-							$display( "[SRAM Model] Write: addr=0x%05X data=0x%02X", addr, { wr_data[7:4], sio } );
+							if( VERBOSE ) begin
+								$display( "[SRAM Model] Write: addr=0x%05X data=0x%02X", addr, { wr_data[7:4], sio } );
+							end
 							addr			<= addr + 19'd1;
 						end
 					end
@@ -185,16 +198,18 @@ module ssram_test_model (
 	//
 	always @( negedge sclk ) begin
 		if( !cs_n && quad_mode && cmd == 8'h0B ) begin
-			if( count == 11 ) begin
-				// Drive upper nibble of read data
-				sio_out		<= rd_data[7:4];
+			if( count == 14 ) begin
+				//	Falling edge of the last dummy clock: upper nibble of the data byte
 				driving		<= 1'b1;
+				sio_out		<= #(T_V) rd_data[7:4];
 			end
-			else if( count == 12 ) begin
-				// Drive lower nibble of read data
-				sio_out		<= rd_data[3:0];
+			else if( count == 15 ) begin
+				sio_out		<= #(T_V) rd_data[3:0];
+			end
+			else if( count >= 16 ) begin
+				//	sequential read: the next byte follows
+				sio_out		<= #(T_V) ( count[0] ? mem[ addr + (count - 14) / 2 ][3:0] : mem[ addr + (count - 14) / 2 ][7:4] );
 			end
 		end
 	end
-
 endmodule

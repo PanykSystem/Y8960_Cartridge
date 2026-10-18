@@ -79,6 +79,11 @@ module tb ();
 	wire	[7:0]	bus_wdata;
 	reg		[7:0]	bus_rdata;
 	reg				bus_rdata_en;
+	reg				mixer_reg_en;
+	wire	[7:0]	ssg_volume;
+	wire	[7:0]	opll_volume;
+	wire	[7:0]	opl2_volume;
+	wire	[7:0]	scc_volume;
 	string			s_state;
 	integer			error_count;
 
@@ -87,6 +92,7 @@ module tb ();
 	// --------------------------------------------------------------------
 	msx_slot u_msx_slot (
 		.clk					( clk					),
+		.slot_enable			( 1'b1					),
 		.reset_n				( reset_n				),
 		.p_slot_reset_n			( p_slot_reset_n		),
 		.p_slot_sltsl_n			( p_slot_sltsl_n		),
@@ -106,7 +112,12 @@ module tb ();
 		.bus_ready				( bus_ready				),
 		.bus_wdata				( bus_wdata				),
 		.bus_rdata				( bus_rdata				),
-		.bus_rdata_en			( bus_rdata_en			)
+		.bus_rdata_en			( bus_rdata_en			),
+		.mixer_reg_en			( mixer_reg_en			),
+		.ssg_volume				( ssg_volume				),
+		.opll_volume			( opll_volume				),
+		.opl2_volume			( opl2_volume				),
+		.scc_volume				( scc_volume				)
 	);
 
 	//	1: Read, 0: Write
@@ -153,6 +164,7 @@ module tb ();
 	reg		[7:0]	ff_cap_wdata;
 	reg				ff_cap_io;
 	reg				ff_cap_write;
+	reg				ff_mixer_access_seen;
 
 	always @( posedge clk ) begin
 		ff_prev_valid	<= bus_valid;
@@ -161,6 +173,9 @@ module tb ();
 			ff_cap_wdata	<= bus_wdata;
 			ff_cap_io		<= bus_io;
 			ff_cap_write	<= bus_write;
+		end
+		if( u_msx_slot.w_mixer_access ) begin
+			ff_mixer_access_seen <= 1'b1;
 		end
 	end
 
@@ -391,6 +406,7 @@ module tb ();
 		input	[15:0]	address,
 		input	[7:0]	wdata
 	);
+		ff_mixer_access_seen = 1'b0;
 		fork
 			//	CPU clock
 			begin
@@ -459,8 +475,14 @@ module tb ();
 				ff_slot_data	= wdata;
 			end
 		join
-		check( $sformatf( "write_mem address=%04h wdata=%02h", address, wdata ),
-			(ff_cap_io == 1'b0) && (ff_cap_write == 1'b1) && (ff_cap_address == address) && (ff_cap_wdata == wdata) );
+		if( mixer_reg_en && (address[15:4] == 12'h7FF) && (address[3:0] >= 4'd7) && (address[3:0] <= 4'd10) ) begin
+			check( $sformatf( "write_mem mixer address=%04h wdata=%02h", address, wdata ),
+				ff_mixer_access_seen && (bus_valid == 1'b0) );
+		end
+		else begin
+			check( $sformatf( "write_mem address=%04h wdata=%02h", address, wdata ),
+				(ff_cap_io == 1'b0) && (ff_cap_write == 1'b1) && (ff_cap_address == address) && (ff_cap_wdata == wdata) );
+		end
 	endtask
 
 	// --------------------------------------------------------------------
@@ -695,6 +717,29 @@ module tb ();
 		check( "write_mem_no_ready: msx_slot ff_valid released without bus_ready", u_msx_slot.ff_valid == 1'b0 );
 		ff_suppress_bus_ready = 1'b0;
 		repeat( 2 ) @( posedge clk );
+	endtask
+
+	// --------------------------------------------------------------------
+	//	Write with data arriving 60ns after /WR falls (/WR low 280ns)
+	// --------------------------------------------------------------------
+	//	Delays are given in the same unit convention as clk_base (ps values).
+	task write_late_data(
+		input			is_io,
+		input	[15:0]	address,
+		input	[7:0]	wdata
+	);
+		p_slot_address	= address;
+		ff_slot_data	= 8'h00;
+		#(100_000);
+		if( is_io ) p_slot_ioreq_n = 1'b0; else p_slot_sltsl_n = 1'b0;
+		p_slot_wr_n		= 1'b0;
+		#(60_000) ff_slot_data = wdata;
+		#(220_000);
+		p_slot_wr_n		= 1'b1;
+		if( is_io ) p_slot_ioreq_n = 1'b1; else p_slot_sltsl_n = 1'b1;
+		#(300_000);
+		check( $sformatf( "write_late_data io=%0d address=%04h wdata=%02h (captured %02h)", is_io, address, wdata, ff_cap_wdata ),
+			(ff_cap_io == is_io) && (ff_cap_write == 1'b1) && (ff_cap_wdata == wdata) );
 	endtask
 
 	// --------------------------------------------------------------------
@@ -1018,6 +1063,8 @@ module tb ();
 		bus_rdata			= 0;
 		bus_rdata_en		= 0;
 		int_n				= 1;
+		mixer_reg_en		= 1'b0;
+		ff_mixer_access_seen = 1'b0;
 		error_count			= 0;
 
 		@( posedge clk );
@@ -1026,6 +1073,27 @@ module tb ();
 		p_slot_reset_n		= 1'b1;
 		@( posedge clk );
 		@( posedge clk );
+
+		check( "mixer reset: SSG volume == 128", ssg_volume == 8'd128 );
+		check( "mixer reset: OPLL volume == 128", opll_volume == 8'd128 );
+		check( "mixer reset: OPL2 volume == 128", opl2_volume == 8'd128 );
+		check( "mixer reset: SCC volume == 128", scc_volume == 8'd128 );
+
+		mixer_reg_en = 1'b1;
+		write_mem( 16'h7FF7, 8'd16 );
+		write_mem( 16'h7FF8, 8'd32 );
+		write_mem( 16'h7FF9, 8'd48 );
+		write_mem( 16'h7FFA, 8'd64 );
+		check( "mixer write: SSG volume", ssg_volume == 8'd16 );
+		check( "mixer write: OPLL volume", opll_volume == 8'd32 );
+		check( "mixer write: OPL2 volume", opl2_volume == 8'd48 );
+		check( "mixer write: SCC volume", scc_volume == 8'd64 );
+		write_mem( 16'h7FFB, 8'd80 );
+		check( "mixer removed 7FFBh: SCC volume unchanged", scc_volume == 8'd64 );
+
+		mixer_reg_en = 1'b0;
+		write_mem( 16'h7FF7, 8'h66 );
+		check( "mixer disabled: SSG volume unchanged", ssg_volume == 8'd16 );
 
 		// --------------------------------------------------------------------
 		//	I/O access
@@ -1064,11 +1132,11 @@ module tb ();
 		//	Memory access
 		// --------------------------------------------------------------------
 		write_mem( 16'h4000, 8'h12 );
-		write_mem( 16'h7FEA, 8'h34 );
+		write_mem( 16'h7FF0, 8'h34 );
 		write_mem( 16'h7FFF, 8'h56 );
 
 		read_mem( 16'h4000, rdata );
-		read_mem( 16'h7FEA, rdata );
+		read_mem( 16'h7FF0, rdata );
 		read_mem( 16'h7FFF, rdata );
 
 		// --------------------------------------------------------------------
@@ -1101,6 +1169,16 @@ module tb ();
 		write_mem( 16'h6000, 8'hEF );
 		read_mem( 16'h6000, rdata );
 
+		// --------------------------------------------------------------------
+		//	Write data that settles after /WR falls (slow slot data path) must
+		//	be captured with its final value (stale value 00h for the first 60ns).
+		// --------------------------------------------------------------------
+		for( d = 0; d < 8; d = d + 1 ) begin
+			write_late_data( 1'b1, 16'h0047, 8'h01 << d );
+			write_late_data( 1'b1, 16'h0047, ~(8'h01 << d) | 8'h01 );
+			write_late_data( 1'b0, 16'h6000 + d, 8'hFF ^ (8'h01 << d) );
+		end
+
 		repeat( 10 ) @( posedge clk );
 
 		if( error_count == 0 ) begin
@@ -1112,4 +1190,3 @@ module tb ();
 		$finish;
 	end
 endmodule
-

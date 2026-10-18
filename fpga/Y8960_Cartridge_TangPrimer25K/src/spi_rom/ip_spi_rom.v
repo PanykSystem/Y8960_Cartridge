@@ -37,6 +37,11 @@ module ip_spi_rom(
 	input	[7:0]	bus_wdata,
 	output	[7:0]	bus_rdata,
 	output			bus_rdata_en,
+	//	Stream read interface (command port 0Bh)
+	output	[7:0]	stream_rdata,
+	output			stream_valid,
+	input			stream_ready,
+	input			stream_stop,
 	//	SPI interface
 	output			srom_cs_n,
 	output			srom_clk,
@@ -47,6 +52,7 @@ module ip_spi_rom(
 );
 	localparam	[2:0]	MODE_STD_WRITE				= 3'd0;
 	localparam	[2:0]	MODE_STD_READ				= 3'd1;
+	localparam	[2:0]	MODE_STREAM_READ			= 3'd2;
 
 	localparam	[7:0]	SROM_PAGE_PROGRAM			= 8'h02;
 	localparam	[7:0]	SROM_WRITE_DISABLE			= 8'h04;
@@ -68,6 +74,7 @@ module ip_spi_rom(
 	localparam	[3:0]	CMD_WRITE_ENABLE			= 4'd8;
 	localparam	[3:0]	CMD_BLOCK_ERASE				= 4'd9;
 	localparam	[3:0]	CMD_READ_STATUS_2			= 4'd10;
+	localparam	[3:0]	CMD_STREAM_READ				= 4'd11;
 	localparam	[3:0]	CMD_NOP						= 4'd15;
 
 	
@@ -123,6 +130,22 @@ module ip_spi_rom(
 	localparam	[4:0]	ST_SPI_STD_READ_CLK		= 5'd4;
 	localparam	[4:0]	ST_SPI_STD_READ_LOOP	= 5'd5;
 	localparam	[4:0]	ST_SPI_FINISH			= 5'd6;
+	localparam	[4:0]	ST_SPI_STREAM_PUSH		= 5'd7;
+
+	//	Stream read: clk domain
+	reg				ff_stream_stop;
+	reg				ff_stream_toggle_s1;
+	reg				ff_stream_toggle_s2;
+	reg				ff_stream_ack;
+	reg		[7:0]	ff_stream_rdata;
+	reg				ff_stream_valid;
+	//	Stream read: clk_serial domain
+	reg				ff_spi_stream_toggle;
+	reg		[7:0]	ff_spi_stream_data;
+	reg				ff_spi_stream_ack0;
+	reg				ff_spi_stream_ack1;
+	reg				ff_spi_stream_stop0;
+	reg				ff_spi_stream_stop1;
 
 	reg				ff_spi_serial_valid0;
 	reg				ff_spi_serial_valid1;
@@ -162,10 +185,12 @@ module ip_spi_rom(
 	//			1byte 読み出しのみである。
 	//			開始アドレスは、アドレスの下位 1byte が無視される。
 	//		0x03: burst write mode
-	//			256byte の書き込みを行うモード。0x03 を書いた時点でアドレスを
-	//			発行し、その後の data port への書き込みは、
-	//			1byte 書き込みのみである。
-	//			開始アドレスは、アドレスの下位 1byte が無視される。
+	//			Page Program による書き込みを行うモード。最初の data port への
+	//			書き込みで WRITE_ENABLE + Page Program + 24bit アドレスを発行し、
+	//			以降の data port への書き込みは、1byte 書き込みのみである。
+	//			開始アドレスは set address mode で設定した値 (下位 1byte も有効)。
+	//			ページ (256byte) 境界を越えるとページ先頭に戻る (Flash の仕様)。
+	//			0x07 (access end) で CS を戻した時点で書き込みが実行される。
 	//		0x04: chip erase
 	//			Serial ROM 全体を消去するコマンドを発行する。
 	//			このモードでは、data port へのアクセスは行わない。
@@ -186,7 +211,14 @@ module ip_spi_rom(
 	//		0x0A: read status register 2
 	//			Serial ROM のステータスレジスタ2を読み出すモード。
 	//			data port から、1byte 読み出すと、その最下位bitが入る。
-	//		0x0B-0xFF: reserved
+	//		0x0B: stream read
+	//			Fast Read(0Bh) + address + dummy を発行し、以降は連続で読み出した
+	//			データを stream_rdata/stream_valid へ出力する (stream_ready で受領)。
+	//			受け手が受け取れない間は SPI クロックを停止して待つ。
+	//			stream_stop を 1 にすると読み出しを終了し、ff_cs_n を 1 に戻して
+	//			bus_ready が 1 に戻る。stream_stop 中のデータは破棄される。
+	//			stream_stop は bus_ready が 1 に戻るまで保持すること。
+	//		0x0C-0xFF: reserved
 	// ---------------------------------------------------------
 	//	SerialROM Status Register
 	//	S0: busy
@@ -242,7 +274,6 @@ module ip_spi_rom(
 					8'h03: begin
 						//	burst write mode
 						ff_command_mode			<= CMD_BURST_WRITE;
-						ff_rom_address[7:0]		<= 8'h00;
 						ff_burst_count			<= 8'd0;
 					end
 					8'h04: begin
@@ -278,6 +309,12 @@ module ip_spi_rom(
 					8'h0A: begin
 						//	read status register 2
 						ff_command_mode			<= CMD_READ_STATUS_2;
+					end
+					8'h0B: begin
+						//	stream read
+						ff_command_mode			<= CMD_STREAM_READ;
+						ff_bus_ready			<= 1'b0;
+						ff_do_command			<= 1'b1;
 					end
 					default: begin
 						//	reserved command: enter NOP mode to avoid stale mode side effects.
@@ -531,9 +568,10 @@ module ip_spi_rom(
 				ST_IDLE: begin
 					if( ff_do_command ) begin
 						case( ff_command_mode )
-							CMD_SINGLE_READ: begin
+							CMD_SINGLE_READ, CMD_STREAM_READ: begin
 								//	このモードでは、data port からの読み出しのたびに
 								//	Fast Read(0Bh) を発行する。
+								//	stream read では、最初の 1回だけ発行する。
 								ff_command_state		<= ST_READ_MODE;
 								ff_serial_mode			<= MODE_STD_WRITE;
 								ff_serial_wdata 		<= SROM_FAST_READ;
@@ -695,8 +733,15 @@ module ip_spi_rom(
 				end
 				ST_READ_BYTE: begin
 					if( w_serial_idle ) begin
-						ff_command_state	<= ST_RECEIVE_BYTE;
-						ff_serial_mode		<= MODE_STD_READ;
+						if( ff_command_mode == CMD_STREAM_READ ) begin
+							//	stream_stop まで連続で読み出す。終了後は ff_cs_n を 1 に戻す。
+							ff_command_state	<= ST_FINISH;
+							ff_serial_mode		<= MODE_STREAM_READ;
+						end
+						else begin
+							ff_command_state	<= ST_RECEIVE_BYTE;
+							ff_serial_mode		<= MODE_STD_READ;
+						end
 						ff_serial_wdata 	<= 8'd0;
 						ff_serial_write 	<= 1'b0;
 						ff_serial_valid 	<= 1'b1;
@@ -742,7 +787,7 @@ module ip_spi_rom(
 				ST_WRITE_ADDR_L: begin
 					ff_command_state	<= ST_WRITE_BYTE;
 					ff_serial_mode		<= MODE_STD_WRITE;
-					ff_serial_wdata		<= 8'h00;
+					ff_serial_wdata		<= ff_rom_address[7:0];
 					ff_serial_write		<= 1'b1;
 					ff_serial_valid		<= 1'b1;
 				end
@@ -932,6 +977,8 @@ module ip_spi_rom(
 			ff_spi_data			<= 8'd0;
 			ff_spi_hiz			<= 4'b1111;
 			ff_spi_sio			<= 4'b0000;
+			ff_spi_stream_toggle	<= 1'b0;
+			ff_spi_stream_data		<= 8'd0;
 		end
 		else if( ff_spi_processing ) begin
 			if( ff_spi_ce ) begin
@@ -944,7 +991,7 @@ module ip_spi_rom(
 							ff_spi_data		<= ff_xfer_wdata;
 							ff_spi_substate	<= 3'd7;
 						end
-						MODE_STD_READ: begin
+						MODE_STD_READ, MODE_STREAM_READ: begin
 							ff_spi_state	<= ST_SPI_STD_READ;
 							ff_spi_clk		<= 1'b0;
 							ff_spi_substate	<= 3'd7;
@@ -994,8 +1041,26 @@ module ip_spi_rom(
 						ff_spi_substate	<= ff_spi_substate - 3'd1;
 						ff_spi_state	<= ST_SPI_STD_READ_CLK;
 					end
+					else if( ff_xfer_mode == MODE_STREAM_READ ) begin
+						ff_spi_state	<= ST_SPI_STREAM_PUSH;
+					end
 					else begin
 						ff_spi_state	<= ST_SPI_FINISH;
+					end
+				end
+				ST_SPI_STREAM_PUSH: begin
+					//	Hand over the received byte when the previous one has been taken.
+					//	srom_clk stays low while waiting.
+					if( ff_spi_stream_ack1 == ff_spi_stream_toggle ) begin
+						if( ff_spi_stream_stop1 ) begin
+							ff_spi_state	<= ST_SPI_FINISH;
+						end
+						else begin
+							ff_spi_stream_data		<= ff_spi_data;
+							ff_spi_stream_toggle	<= ~ff_spi_stream_toggle;
+							ff_spi_substate			<= 3'd7;
+							ff_spi_state			<= ST_SPI_STD_READ_CLK;
+						end
 					end
 				end
 				ST_SPI_FINISH: begin
@@ -1026,6 +1091,57 @@ module ip_spi_rom(
 			end
 		end
 	end
+
+	// ---------------------------------------------------------
+	//	Stream read handshake
+	// ---------------------------------------------------------
+	//	clk_serial side: synchronize ack / stop
+	always @( posedge clk_serial ) begin
+		if( !reset_n ) begin
+			ff_spi_stream_ack0	<= 1'b0;
+			ff_spi_stream_ack1	<= 1'b0;
+			ff_spi_stream_stop0	<= 1'b0;
+			ff_spi_stream_stop1	<= 1'b0;
+		end
+		else begin
+			ff_spi_stream_ack0	<= ff_stream_ack;
+			ff_spi_stream_ack1	<= ff_spi_stream_ack0;
+			ff_spi_stream_stop0	<= ff_stream_stop;
+			ff_spi_stream_stop1	<= ff_spi_stream_stop0;
+		end
+	end
+
+	//	clk side: 1 entry buffer. Pending bytes are discarded while stream_stop is 1.
+	always @( posedge clk ) begin
+		if( !reset_n ) begin
+			ff_stream_stop		<= 1'b0;
+			ff_stream_toggle_s1	<= 1'b0;
+			ff_stream_toggle_s2	<= 1'b0;
+			ff_stream_ack		<= 1'b0;
+			ff_stream_rdata		<= 8'd0;
+			ff_stream_valid		<= 1'b0;
+		end
+		else begin
+			ff_stream_stop		<= stream_stop;
+			ff_stream_toggle_s1	<= ff_spi_stream_toggle;
+			ff_stream_toggle_s2	<= ff_stream_toggle_s1;
+			if( ff_stream_stop ) begin
+				ff_stream_valid		<= 1'b0;
+				ff_stream_ack		<= ff_stream_toggle_s2;
+			end
+			else if( (ff_stream_toggle_s2 != ff_stream_ack) && (!ff_stream_valid || stream_ready) ) begin
+				ff_stream_rdata		<= ff_spi_stream_data;
+				ff_stream_valid		<= 1'b1;
+				ff_stream_ack		<= ff_stream_toggle_s2;
+			end
+			else if( stream_ready ) begin
+				ff_stream_valid		<= 1'b0;
+			end
+		end
+	end
+
+	assign stream_rdata		= ff_stream_rdata;
+	assign stream_valid		= ff_stream_valid;
 
 	assign w_srom_sio[3]	= 1'b1;
 	assign w_srom_sio[2]	= 1'b1;

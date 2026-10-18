@@ -76,7 +76,6 @@ module y8960_address_decode(
 	output			bus_opl2_cs,
 	output			bus_ssg_cs,
 	output			bus_scc_cs,
-	output			bus_dcsg_cs,
 	output			bus_sysctrl_cs,
 	//	Module ready
 	input			bus_timer_ready,
@@ -84,7 +83,6 @@ module y8960_address_decode(
 	input			bus_opl2_ready,
 	input			bus_ssg_ready,
 	input			bus_scc_ready,
-	input			bus_dcsg_ready,
 	input			bus_sysctrl_ready,
 	//	Memory Mapped I/O enabler
 	input			memory_io_en,
@@ -95,29 +93,19 @@ module y8960_address_decode(
 	localparam		c_timer2_io				= 8'hB2;	//	MSX-TIMER: B2h-B3h
 	localparam		c_ssg1_io				= 8'hA0;	//	SSG      : A0h-A1h
 	localparam		c_ssg2_io				= 8'hA2;	//	SSG      : A2h-A3h
-	localparam		c_opll1_io				= 8'h7A;	//	MSX-MUSIC: 7Ah-7Bh
-	localparam		c_opll2_io				= 8'h7C;	//	MSX-MUSIC: 7Ch-7Dh
-	localparam		c_opl2_1_io				= 8'hC0;	//	MSX-AUDIO: C0h-C1h
-	localparam		c_opl2_2_io				= 8'hC2;	//	MSX-AUDIO: C2h-C3h
-	localparam		c_dcsg_io				= 8'h7E;	//	DCSG     : 7Eh-7Fh
+	localparam		c_opll_io				= 8'h7C;	//	MSX-MUSIC: 7Ch-7Dh
+	localparam		c_opl2_io				= 8'hC0;	//	MSX-AUDIO: C0h-C1h
 	localparam		c_sysctrl_io			= 4'h4;		//	SYSCTRL  : 40h-4Fh
 	//	Memory interface is always connect.
-	localparam		c_ssg_mio				= 5'h0A;	//	SSG         : 7FEAh-7FEBh (Mirror 3FFAh-3FFBh)
-	localparam		c_opl2_1_mio			= 5'h0C;	//	MSX-AUDIO   : 7FECh-7FEDh (Mirror 3FECh-3FEDh)
-	localparam		c_opl2_2_mio			= 5'h0E;	//	MSX-AUDIO   : 7FEEh-7FEFh (Mirror 3FEEh-3FEFh)
-	localparam		c_dcsg_mio				= 5'h10;	//	DCSG        : 7FF0h-7FF1h (Mirror 3FF0h-3FF1h)
-	localparam		c_opll1_mio				= 5'h12;	//	MSX-MUSIC   : 7FF2h-7FF3h (Mirror 3FF2h-3FF3h)
-	localparam		c_opll2_mio				= 5'h14;	//	MSX-MUSIC   : 7FF4h-7FF5h (Mirror 3FF4h-3FF5h)
-	localparam		c_io_en1				= 5'h16;	//	I/O Enabler1: 7FF6h (Mirror 3FF6h)
-	localparam		c_io_en2				= 5'h1E;	//	I/O Enabler2: 7FFFh (Mirror 3FFFh)
+	localparam		c_ssg_mio				= 5'h10;	//	SSG         : 7FF0h-7FF1h
+	localparam		c_opl2_mio				= 5'h12;	//	MSX-AUDIO   : 7FF2h-7FF3h
+	localparam		c_opll_mio				= 5'h14;	//	MSX-MUSIC   : 7FF4h-7FF5h
+	localparam		c_io_en1				= 5'h16;	//	I/O Enabler1: 7FF6h
+	localparam		c_io_en2				= 5'h1F;	//	I/O Enabler2: 7FFFh
 
 	reg 			ff_timer_io_en		= 1'b0;
-	reg 			ff_opll1_io_en		= 1'b1;
-	reg 			ff_opll2_io_en		= 1'b0;
-	reg 			ff_opl2_1_io_en		= 1'b0;
-	reg 			ff_opl2_2_io_en		= 1'b0;
-	reg 			ff_dcsg1_io_en		= 1'b0;
-	reg 			ff_dcsg2_io_en		= 1'b0;
+	reg 			ff_opll_io_en		= 1'b1;
+	reg 			ff_opl2_io_en		= 1'b0;
 	reg 			ff_ssg_io_en		= 1'b1;
 
 	// --------------------------------------------------------------------
@@ -127,48 +115,39 @@ module y8960_address_decode(
 	// --------------------------------------------------------------------
 	wire			w_io_access			= bus_valid & bus_io;
 	wire			w_io_ssg_match		= (bus_address[7:1] == c_ssg1_io[7:1]) | (bus_address[7:1] == c_ssg2_io[7:1]);
-	wire			w_io_opll1_match	= (bus_address[7:1] == c_opll1_io[7:1]);
-	wire			w_io_opll2_match	= (bus_address[7:1] == c_opll2_io[7:1]);
-	wire			w_io_opl2_1_match	= (bus_address[7:1] == c_opl2_1_io[7:1]);
-	wire			w_io_opl2_2_match	= (bus_address[7:1] == c_opl2_2_io[7:1]);
-	wire			w_io_dcsg_match		= (bus_address[7:1] == c_dcsg_io[7:1]);
-	wire			w_io_timer_match	= (bus_address[7:1] == c_timer1_io[7:1]) | (bus_address[7:1] == c_timer2_io[7:1]);
-	wire			w_io_known_match	= w_io_ssg_match | w_io_opll1_match | w_io_opll2_match
-										| w_io_opl2_1_match | w_io_opl2_2_match | w_io_dcsg_match | w_io_timer_match;
+	wire			w_io_opll_match		= (bus_address[7:1] == c_opll_io[7:1]);
+	wire			w_io_opl2_match		= (bus_address[7:1] == c_opl2_io[7:1]);
+	wire			w_io_timer_match		= (bus_address[7:1] == c_timer1_io[7:1]) | (bus_address[7:1] == c_timer2_io[7:1]);
+	wire			w_io_known_match	= w_io_ssg_match | w_io_opll_match
+										| w_io_opl2_match | w_io_timer_match;
 	wire			w_io_sysctrl_match	= ~w_io_known_match & (bus_address[7:4] == c_sysctrl_io);
 
 	wire			w_bus_ssg_cs_io		= w_io_access & w_io_ssg_match & ff_ssg_io_en;
-	wire			w_bus_opll_cs_io	= w_io_access & ( (w_io_opll1_match & ff_opll1_io_en) | (w_io_opll2_match & ff_opll2_io_en) );
-	wire			w_bus_opl2_cs_io	= w_io_access & ( (w_io_opl2_1_match & ff_opl2_1_io_en) | (w_io_opl2_2_match & ff_opl2_2_io_en) );
-	wire			w_bus_dcsg_cs_io	= w_io_access & w_io_dcsg_match & (ff_dcsg1_io_en | ff_dcsg2_io_en);
+	wire			w_bus_opll_cs_io	= w_io_access & w_io_opll_match & ff_opll_io_en;
+	wire			w_bus_opl2_cs_io	= w_io_access & w_io_opl2_match & ff_opl2_io_en;
 	wire			w_bus_timer_cs		= w_io_access & w_io_timer_match & ff_timer_io_en;
 	wire			w_bus_sysctrl_cs	= w_io_access & w_io_sysctrl_match;
 
 	// --------------------------------------------------------------------
-	//	Memory mapped I/O address decode (7FE0h-7FFFh window, mirrored at
-	//	3FE0h-3FFFh, write only)
+	//	Memory mapped I/O address decode (7FE0h-7FFFh window, write only)
 	// --------------------------------------------------------------------
 	wire			w_mem_access		= bus_valid & ~bus_io;
-	wire			w_mio_window		= memory_io_en & bus_write & (bus_address[15] == 1'b0) & (bus_address[13:5] == 9'b11_1111_111);
+	wire			w_mio_window		= memory_io_en & bus_write & (bus_address[15:5] == 11'b011_1111_1111);
 	wire			w_mio_active		= w_mem_access & w_mio_window;
 
 	wire			w_mio_ssg_match		= (bus_address[4:1] == c_ssg_mio[4:1]);
-	wire			w_mio_opll_match	= (bus_address[4:1] == c_opll1_mio[4:1]) | (bus_address[4:1] == c_opll2_mio[4:1]);
-	wire			w_mio_opl2_match	= (bus_address[4:1] == c_opl2_1_mio[4:1]) | (bus_address[4:1] == c_opl2_2_mio[4:1]);
-	wire			w_mio_dcsg_match	= (bus_address[4:1] == c_dcsg_mio[4:1]);
-	wire			w_mio_io_en1_match	= (bus_address[4:1] == c_io_en1[4:1]);
-	wire			w_mio_io_en2_match	= (bus_address[4:1] == c_io_en2[4:1]);
+	wire			w_mio_opll_match	= (bus_address[4:1] == c_opll_mio[4:1]);
+	wire			w_mio_opl2_match	= (bus_address[4:1] == c_opl2_mio[4:1]);
+	wire			w_mio_io_en1_match	= (bus_address[4:0] == c_io_en1);
+	wire			w_mio_io_en2_match	= (bus_address[4:0] == c_io_en2);
 	wire			w_mio_known_match	= w_mio_ssg_match | w_mio_opll_match | w_mio_opl2_match
-										| w_mio_dcsg_match | w_mio_io_en1_match | w_mio_io_en2_match;
+										| w_mio_io_en1_match | w_mio_io_en2_match;
 
 	wire			w_bus_ssg_cs_mio	= w_mio_active & w_mio_ssg_match;
 	wire			w_bus_opll_cs_mio	= w_mio_active & w_mio_opll_match;
 	wire			w_bus_opl2_cs_mio	= w_mio_active & w_mio_opl2_match;
-	wire			w_bus_dcsg_cs_mio	= w_mio_active & w_mio_dcsg_match;
-	wire			w_mio_io_en1_cs		= w_mio_active & w_mio_io_en1_match & (bus_address[0] == 1'b0);
-	wire			w_mio_io_en1_scc	= w_mio_active & w_mio_io_en1_match & (bus_address[0] == 1'b1);
-	wire			w_mio_io_en2_cs		= w_mio_active & w_mio_io_en2_match & (bus_address[0] == 1'b1);
-	wire			w_mio_io_en2_scc	= w_mio_active & w_mio_io_en2_match & (bus_address[0] == 1'b0);
+	wire			w_mio_io_en1_cs		= w_mio_active & w_mio_io_en1_match;
+	wire			w_mio_io_en2_cs		= w_mio_active & w_mio_io_en2_match;
 	wire			w_mio_default_match	= w_mio_active & ~w_mio_known_match;
 	wire			w_bus_io_en_cs		= w_mio_io_en1_cs | w_mio_io_en2_cs;
 
@@ -178,15 +157,13 @@ module y8960_address_decode(
 	wire			w_bus_ssg_cs		= w_bus_ssg_cs_io | w_bus_ssg_cs_mio;
 	wire			w_bus_opll_cs		= w_bus_opll_cs_io | w_bus_opll_cs_mio;
 	wire			w_bus_opl2_cs		= w_bus_opl2_cs_io | w_bus_opl2_cs_mio;
-	wire			w_bus_dcsg_cs		= w_bus_dcsg_cs_io | w_bus_dcsg_cs_mio;
-	wire			w_bus_scc_cs		= w_mem_plain | w_mio_default_match | w_mio_io_en1_scc | w_mio_io_en2_scc;
+	wire			w_bus_scc_cs		= w_mem_plain | w_mio_default_match;
 
 	assign bus_timer_cs		= w_bus_timer_cs;
 	assign bus_opll_cs		= w_bus_opll_cs;
 	assign bus_opl2_cs		= w_bus_opl2_cs;
 	assign bus_ssg_cs		= w_bus_ssg_cs;
 	assign bus_scc_cs		= w_bus_scc_cs;
-	assign bus_dcsg_cs		= w_bus_dcsg_cs;
 	assign bus_sysctrl_cs	= w_bus_sysctrl_cs;
 
 	assign bus_ready	= (w_bus_timer_cs & bus_timer_ready)
@@ -194,7 +171,6 @@ module y8960_address_decode(
 						| (w_bus_opll_cs & bus_opll_ready)
 						| (w_bus_ssg_cs & bus_ssg_ready)
 						| (w_bus_scc_cs & bus_scc_ready)
-						| (w_bus_dcsg_cs & bus_dcsg_ready)
 						| (w_bus_sysctrl_cs & bus_sysctrl_ready)
 						| w_bus_io_en_cs;
 
@@ -204,29 +180,19 @@ module y8960_address_decode(
 	always @( posedge clk ) begin
 		if( !reset_n ) begin
 			ff_timer_io_en		<= 1'b0;
-			ff_opll1_io_en		<= 1'b1;
-			ff_opll2_io_en		<= 1'b0;
-			ff_opl2_1_io_en		<= 1'b0;
-			ff_opl2_2_io_en		<= 1'b0;
-			ff_dcsg1_io_en		<= 1'b0;
-			ff_dcsg2_io_en		<= 1'b0;
+			ff_opll_io_en		<= 1'b1;
+			ff_opl2_io_en		<= 1'b0;
 			ff_ssg_io_en		<= 1'b1;
 		end
-		else if( w_bus_io_en_cs ) begin
-			if( bus_address[0] == 1'b0 ) begin
-				//	7FF6h (Mirror 3FF6h): I/O Enabler1
-				ff_opll1_io_en		<= bus_wdata[0];
-				ff_opll2_io_en		<= bus_wdata[1];
-			end
-			else begin
-				//	7FFFh (Mirror 3FFFh): I/O Enabler2
-				ff_opl2_1_io_en		<= bus_wdata[0];
-				ff_opl2_2_io_en		<= bus_wdata[1];
-				ff_dcsg1_io_en		<= bus_wdata[2];
-				ff_dcsg2_io_en		<= bus_wdata[3];
-				ff_ssg_io_en		<= bus_wdata[4];
-				ff_timer_io_en		<= bus_wdata[7];
-			end
+		else if( w_mio_io_en1_cs ) begin
+			//	7FF6h: I/O Enabler1
+			ff_opll_io_en		<= bus_wdata[0];
+		end
+		else if( w_mio_io_en2_cs ) begin
+			//	7FFFh: I/O Enabler2
+			ff_opl2_io_en		<= bus_wdata[0];
+			ff_ssg_io_en		<= bus_wdata[1];
+			ff_timer_io_en		<= bus_wdata[7];
 		end
 	end
 

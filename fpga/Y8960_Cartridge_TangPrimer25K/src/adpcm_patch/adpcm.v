@@ -31,6 +31,8 @@ module adpcm (
 	reg		[7:0]	ff_reg_select;
 	reg		[7:0]	ff_rdata;
 	reg		[7:0]	ff_adpcm_data;
+	reg		[7:0]	ff_adpcm_wdata;
+	reg		[23:0]	ff_adpcm_address;
 	reg				ff_bus_valid;
 	reg				reg_mask_eds;				// 04h [4]
 	reg				reg_mask_buffer_ready;		// 04h [3]
@@ -41,7 +43,6 @@ module adpcm (
 	reg				reg_reset;					// 07h [0]
 	reg		[12:0]	reg_start_address;			// 09h, 0Ah
 	reg		[12:0]	reg_stop_address;			// 0Bh, 0Ch
-	reg		[7:0]	reg_adpcm_data;				// 0Fh
 	reg		[15:0]	reg_delta_n;				// 10h, 11h
 	reg		[7:0]	reg_envelope_control;		// 12h
 	reg		[17:0]	ff_byte_counter;
@@ -55,15 +56,28 @@ module adpcm (
 	reg				ff_adpcm_valid;
 	reg				ff_adpcm_write;
 	reg				ff_adpcm_read;
+	reg				ff_core_pending;
+	reg		[23:0]	ff_core_address;
+	reg		[7:0]	reg_pan;					// FFh
+	wire			w_adpcm_oe_n;
+	wire			w_core_enable;
+	wire	[23:0]	w_core_address;
+	wire	[15:0]	w_pcm;
+	wire	[8:0]	w_pan_gain_l;
+	wire	[8:0]	w_pan_gain_r;
+	wire signed [25:0]	w_pan_product_l;
+	wire signed [25:0]	w_pan_product_r;
 
 	// ---------------------------------------------------------
 	//	JT ADPCM (TypeB) body
 	// ---------------------------------------------------------
+	assign w_core_enable = enable | ~reset_n;
+
 	jt10_adpcm_drvB u_adpcm (
 		.rst_n			( reset_n							),
 		.clk			( clk								),
-		.cen			( enable							),
-		.cen55			( w_cen55							),
+		.cen			( w_core_enable						),
+		.cen55			( cen55								),
 		.acmd_on_b		( reg_start							),
 		.acmd_rep_b		( reg_repeat						),
 		.acmd_rst_b		( reg_reset							),
@@ -75,12 +89,27 @@ module adpcm (
 		.aeg_b			( reg_envelope_control				),
 		.flag			( w_flag							),
 		.clr_flag		( reg_mask_eds						),
-		.addr			( adpcm_address						),
+		.addr			( w_core_address						),
 		.data			( ff_adpcm_data						),
 		.roe_n			( w_adpcm_oe_n						),
-		.pcm55_l		( adpcm_sound_out_l					),
-		.pcm55_r		( adpcm_sound_out_r					)
+		.pcm55_l		( w_pcm								),
+		.pcm55_r		(									)
 	);
+
+	// ---------------------------------------------------------
+	//	Stereo panning (register FFh)
+	// ---------------------------------------------------------
+	pan_lut u_pan_lut (
+		.i_clk			( clk								),
+		.i_pan			( reg_pan							),
+		.o_gain_l		( w_pan_gain_l						),
+		.o_gain_r		( w_pan_gain_r						)
+	);
+
+	assign w_pan_product_l		= $signed( w_pcm ) * $signed( { 1'b0, w_pan_gain_l } );
+	assign w_pan_product_r		= $signed( w_pcm ) * $signed( { 1'b0, w_pan_gain_r } );
+	assign adpcm_sound_out_l	= w_pan_product_l[23:8];
+	assign adpcm_sound_out_r	= w_pan_product_r[23:8];
 
 	always @( posedge clk ) begin
 		if( !reset_n ) begin
@@ -96,6 +125,7 @@ module adpcm (
 			reg_stop_address		<= 13'd0;
 			reg_delta_n				<= 16'd0;
 			reg_envelope_control	<= 8'd0;
+			reg_pan					<= 8'd128;
 		end
 		else if( !bus_cs || !bus_valid ) begin
 		end
@@ -128,9 +158,6 @@ module adpcm (
 					8'h0C: begin
 						reg_stop_address[12:8]	<= bus_wdata[4:0];
 					end
-					8'h0F: begin
-						reg_adpcm_data			<= bus_wdata;
-					end
 					8'h10: begin
 						reg_delta_n[7:0]		<= bus_wdata;
 					end
@@ -139,6 +166,9 @@ module adpcm (
 					end
 					8'h12: begin
 						reg_envelope_control	<= bus_wdata;
+					end
+					8'hFF: begin
+						reg_pan					<= bus_wdata;
 					end
 				endcase
 			end
@@ -175,7 +205,7 @@ module adpcm (
 		if( !reset_n ) begin
 			ff_byte_counter <= 18'd0;
 		end
-		else if( ff_adpcm_valid && adpcm_ready && (ff_read_state == c_read_state_request) ) begin
+		else if( ff_adpcm_valid && adpcm_ready && (ff_adpcm_access == c_access_cpu) && (ff_read_state == c_read_state_request) ) begin
 			//	Upon receiving an access request, address increment
 			if( ff_byte_counter == { reg_stop_address, 5'd31 } ) begin
 				ff_byte_counter		<= { reg_start_address, 5'd0 };
@@ -213,30 +243,51 @@ module adpcm (
 
 	always @( posedge clk ) begin
 		if( !reset_n ) begin
-			ff_adpcm_valid <= 1'b0;
-			ff_adpcm_write <= 1'b0;
-			ff_adpcm_read  <= 1'b0;
+			ff_adpcm_data	<= 8'd0;
+			ff_adpcm_wdata	<= 8'd0;
+			ff_adpcm_address	<= 24'd0;
+			ff_adpcm_access	<= c_access_adpcm;
+			ff_adpcm_valid	<= 1'b0;
+			ff_adpcm_write	<= 1'b0;
+			ff_adpcm_read	<= 1'b0;
+			ff_core_pending	<= 1'b0;
+			ff_core_address	<= 24'd0;
 		end
-		else if( ff_adpcm_valid ) begin
-			if( adpcm_ready ) begin
-				//	The access request has been accepted.
-				ff_adpcm_valid <= 1'b0;
+		else begin
+			if( !w_adpcm_oe_n ) begin
+				ff_core_pending	<= 1'b1;
+				ff_core_address	<= w_core_address;
 			end
-		end
-		else if( ff_adpcm_read ) begin
-			if( adpcm_rdata_en ) begin
-				//	Receiving readout data
-				ff_adpcm_read  <= 1'b0;
+
+			if( ff_adpcm_valid ) begin
+				if( adpcm_ready ) begin
+					ff_adpcm_valid <= 1'b0;
+				end
 			end
-		end
-		else if( !bus_cs || !bus_valid ) begin
-			//	hold
-		end
-		else if( ff_reg_select == 8'h0F ) begin
-			if( bus_write || (ff_read_state == c_read_state_request) ) begin
-				ff_adpcm_valid <= 1'b1;
-				ff_adpcm_write <= bus_write;
-				ff_adpcm_read  <= ~bus_write;
+			else if( ff_adpcm_read ) begin
+				if( adpcm_rdata_en ) begin
+					ff_adpcm_read <= 1'b0;
+					if( ff_adpcm_access == c_access_adpcm ) begin
+						ff_adpcm_data <= adpcm_rdata;
+					end
+				end
+			end
+			else if( bus_cs && bus_valid && bus_address && (ff_reg_select == 8'h0F) &&
+					(bus_write || (ff_read_state == c_read_state_request)) ) begin
+				ff_adpcm_address	<= { 6'd0, ff_byte_counter };
+				ff_adpcm_wdata	<= bus_wdata;
+				ff_adpcm_access	<= c_access_cpu;
+				ff_adpcm_valid	<= 1'b1;
+				ff_adpcm_write	<= bus_write;
+				ff_adpcm_read	<= ~bus_write;
+			end
+			else if( ff_core_pending ) begin
+				ff_adpcm_address	<= ff_core_address;
+				ff_adpcm_access	<= c_access_adpcm;
+				ff_adpcm_valid	<= 1'b1;
+				ff_adpcm_write	<= 1'b0;
+				ff_adpcm_read	<= 1'b1;
+				ff_core_pending	<= !w_adpcm_oe_n;
 			end
 		end
 	end
@@ -281,5 +332,6 @@ module adpcm (
 	//	ADPCM RAM interface
 	assign adpcm_write	= ff_adpcm_write;
 	assign adpcm_valid	= ff_adpcm_valid;
-	assign adpcm_wdata	= bus_wdata;
+	assign adpcm_address	= ff_adpcm_address;
+	assign adpcm_wdata	= ff_adpcm_wdata;
 endmodule

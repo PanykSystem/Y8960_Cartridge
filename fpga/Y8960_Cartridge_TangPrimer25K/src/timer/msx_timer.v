@@ -122,6 +122,14 @@ module msx_timer (
 		end
 		else if( ff_busy ) begin
 			ff_register_valid	<= 1'b0;
+			if( w_rdata_en0 | w_rdata_en1 | w_rdata_en2 | w_rdata_en3 ) begin
+				case( ff_register_index[3:2] )
+				2'd0:	ff_rdata <= w_rdata0;
+				2'd1:	ff_rdata <= w_rdata1;
+				2'd2:	ff_rdata <= w_rdata2;
+				2'd3:	ff_rdata <= w_rdata3;
+				endcase
+			end
 			if( ff_rdata_en ) begin
 				ff_busy			<= 1'b0;
 			end
@@ -208,18 +216,21 @@ module msx_timer (
 		if( !reset_n ) begin
 			ff_rdata_en		<= 1'b0;
 		end
-		else if( bus_write ) begin
-			ff_rdata_en	<= 1'b0;
+		else if( ff_busy ) begin
+			ff_rdata_en	<= w_rdata_en0 | w_rdata_en1 | w_rdata_en2 | w_rdata_en3;
 		end
-		else begin
+		else if( bus_cs && bus_valid && !bus_write ) begin
 			//	read access
 			case( bus_address )
 			c_register_index:	ff_rdata_en	<= 1'b1;
-			c_register_value:	ff_rdata_en	<= w_rdata_en0 | w_rdata_en1 | w_rdata_en2 | w_rdata_en3;
+			c_register_value:	ff_rdata_en	<= 1'b0;
 			c_interrupt_flag:	ff_rdata_en	<= 1'b1;
 			c_counter_read:		ff_rdata_en	<= 1'b1;
 			default:			ff_rdata_en	<= 1'b0;
 			endcase
+		end
+		else begin
+			ff_rdata_en	<= 1'b0;
 		end
 	end
 
@@ -235,7 +246,7 @@ module msx_timer (
 		end
 	end
 
-	assign bus_rdata			= ff_rdata;
+	assign bus_rdata			= ff_rdata_en ? ff_rdata : 8'hFF;
 	assign bus_rdata_en			= ff_rdata_en;
 
 	// ---------------------------------------------------------

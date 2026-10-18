@@ -1,0 +1,117 @@
+module tb ();
+	localparam	clk_base = 1_000_000_000_000.0 / 42_954_540;
+
+	reg					clk;
+	reg					reset_n;
+	reg		[12:0]		ssg_l;
+	reg		[12:0]		ssg_r;
+	reg signed	[15:0]	opll_l;
+	reg signed	[15:0]	opll_r;
+	reg signed	[15:0]	opl2_l;
+	reg signed	[15:0]	opl2_r;
+	reg signed	[10:0]	scc;
+	reg		[7:0]		ssg_volume;
+	reg		[7:0]		opll_volume;
+	reg		[7:0]		opl2_volume;
+	reg		[7:0]		scc_volume;
+	wire signed	[23:0]	audio_l_out;
+	wire signed	[23:0]	audio_r_out;
+	integer				error_count;
+
+	mixier u_dut (
+		.clk			( clk			),
+		.reset_n		( reset_n		),
+		.ssg_l			( ssg_l		),
+		.ssg_r			( ssg_r		),
+		.opll_l			( opll_l		),
+		.opll_r			( opll_r		),
+		.opl2_l			( opl2_l		),
+		.opl2_r			( opl2_r		),
+		.scc			( scc			),
+		.ssg_volume		( ssg_volume	),
+		.opll_volume	( opll_volume	),
+		.opl2_volume	( opl2_volume	),
+		.scc_volume		( scc_volume	),
+		.audio_l_out	( audio_l_out	),
+		.audio_r_out	( audio_r_out	)
+	);
+
+	always #(clk_base/2) clk = ~clk;
+
+	task check_output(
+		input string name,
+		input signed [23:0] expected_l,
+		input signed [23:0] expected_r
+	);
+		repeat( 18 ) @( posedge clk );
+		#1;
+		if( audio_l_out == expected_l && audio_r_out == expected_r ) begin
+			$display( "OK   : %s L=%0d R=%0d", name, audio_l_out, audio_r_out );
+		end
+		else begin
+			$display( "ERROR: %s expected L=%0d R=%0d, actual L=%0d R=%0d",
+				name, expected_l, expected_r, audio_l_out, audio_r_out );
+			error_count = error_count + 1;
+		end
+	endtask
+
+	initial begin
+		clk				= 1'b0;
+		reset_n			= 1'b0;
+		ssg_l			= 13'd0;
+		ssg_r			= 13'd0;
+		opll_l			= 16'sd0;
+		opll_r			= 16'sd0;
+		opl2_l			= 16'sd0;
+		opl2_r			= 16'sd0;
+		scc				= 11'sd0;
+		ssg_volume		= 8'd128;
+		opll_volume		= 8'd128;
+		opl2_volume		= 8'd128;
+		scc_volume		= 8'd128;
+		error_count		= 0;
+
+		repeat( 3 ) @( posedge clk );
+		if( audio_l_out != 24'sd0 || audio_r_out != 24'sd0 ) begin
+			$display( "ERROR: reset output is not zero" );
+			error_count = error_count + 1;
+		end
+		reset_n = 1'b1;
+
+		ssg_l	= 13'd1000;
+		ssg_r	= 13'd2000;
+		opll_l	= -16'sd200;
+		opll_r	= 16'sd300;
+		opl2_l	= 16'sd400;
+		opl2_r	= -16'sd500;
+		scc		= -11'sd50;
+		check_output( "all sources at 100%", 24'sd16000, 24'sd25600 );
+
+		ssg_l	= 13'd1024;
+		ssg_r	= 13'd1024;
+		opll_l	= 16'sd1024;
+		opll_r	= 16'sd1024;
+		opl2_l	= 16'sd1024;
+		opl2_r	= 16'sd1024;
+		scc		= 11'sd256;
+		ssg_volume		= 8'd64;
+		opll_volume		= 8'd32;
+		opl2_volume		= 8'd0;
+		scc_volume		= 8'd127;
+		check_output( "independent gains", 24'sd28544, 24'sd28544 );
+
+		ssg_volume		= 8'd0;
+		opll_volume		= 8'd0;
+		opl2_volume		= 8'd0;
+		scc_volume		= 8'd0;
+		check_output( "all sources muted", 24'sd0, 24'sd0 );
+
+		if( error_count == 0 ) begin
+			$display( "OK   : all tests passed" );
+		end
+		else begin
+			$display( "ERROR: %0d test(s) failed", error_count );
+		end
+		$finish;
+	end
+endmodule

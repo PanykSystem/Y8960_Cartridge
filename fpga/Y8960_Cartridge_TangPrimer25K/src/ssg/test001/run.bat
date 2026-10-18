@@ -7,6 +7,11 @@ if errorlevel 1 (
 	pause
 	exit
 )
+vlog ..\..\pan\pan_lut.v
+if errorlevel 1 (
+	pause
+	exit
+)
 vlog ..\dual_ssg.v
 if errorlevel 1 (
 	pause

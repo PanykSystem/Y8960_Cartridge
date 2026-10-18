@@ -33,10 +33,10 @@ module tb ();
 	reg				clk;
 	reg				reset_n;
 	reg				enable;
-	reg				bus_ioreq;
+	reg				bus_cs;
 	reg				bus_valid;
 	reg				bus_write;
-	reg		[7:0]	bus_address;
+	reg		[1:0]	bus_address;
 	wire			bus_ready;
 	reg		[7:0]	bus_wdata;
 	wire	[7:0]	bus_rdata;
@@ -48,8 +48,9 @@ module tb ();
 	reg				keyboard_type = 1'b0;
 	reg				cmt_read = 1'b0;
 	wire			kana_led;
-	wire	[11:0]	sound_out_l;
-	wire	[11:0]	sound_out_r;
+	wire	[12:0]	sound_out_l;
+	wire	[12:0]	sound_out_r;
+	integer			error_count;
 	reg		[1:0]	mode = 2'b11;
 
 	always @( posedge clk ) begin
@@ -71,12 +72,12 @@ module tb ();
 	//	DUT
 	// --------------------------------------------------------------------
 	dual_ssg #(
-		.BUILTIN			( 0					)
+		.BUILTIN			( 1					)
 	) u_dual_ssg (
 		.clk				( clk				),
 		.reset_n			( reset_n			),
 		.enable				( ff_enable			),
-		.bus_ioreq			( bus_ioreq			),
+		.bus_cs				( bus_cs			),
 		.bus_valid			( bus_valid			),
 		.bus_write			( bus_write			),
 		.bus_address		( bus_address		),
@@ -88,8 +89,8 @@ module tb ();
 		.ssg_iob0			( ssg_iob0			),
 		.ssg_ioa1			( ssg_ioa1			),
 		.ssg_iob1			( ssg_iob1			),
-		.sound_out_l		( sound_out_l		),
-		.sound_out_r		( sound_out_r		),
+		.sound_l_out		( sound_out_l		),
+		.sound_r_out		( sound_out_r		),
 		.mode				( mode				)
 	);
 
@@ -104,13 +105,13 @@ module tb ();
 	//	Task
 	// --------------------------------------------------------------------
 	task write_io(
-		input	[7:0]	address,
+		input	[1:0]	address,
 		input	[7:0]	value,
 		output			time_out
 	);
 		int		counter;
 
-		bus_ioreq		<= 1'b1;
+		bus_cs			<= 1'b1;
 		bus_address		<= address;
 		bus_wdata		<= value;
 		bus_write		<= 1'b1;
@@ -128,7 +129,7 @@ module tb ();
 		end
 		@( posedge clk );
 
-		bus_ioreq		<= 1'b0;
+		bus_cs			<= 1'b0;
 		bus_address		<= 8'd0;
 		bus_wdata		<= 8'd0;
 		bus_write		<= 1'b0;
@@ -138,53 +139,50 @@ module tb ();
 
 	// --------------------------------------------------------------------
 	task read_io(
-		input	[7:0]	address,
+		input	[1:0]	address,
 		output	[7:0]	value,
 		output			time_out
 	);
-		int		counter1;
-		int		counter2;
+		int		counter;
 	
-		bus_ioreq		<= 1'b1;
-		bus_address		<= address;
-		bus_wdata		<= 8'd0;
-		bus_write		<= 1'b0;
-		bus_valid		<= 1'b1;
-		counter1		= 0;
-		counter2		= 0;
+		bus_cs			= 1'b1;
+		bus_address		= address;
+		bus_wdata		= 8'd0;
+		bus_write		= 1'b0;
+		bus_valid		= 1'b1;
+		counter			= 0;
 		time_out		= 1'b0;
 
-		fork
-			begin
-				while( !bus_ready ) begin
-					counter1		<= counter1 + 1;
-					if( counter1 > 100 ) begin
-						time_out	<= 1'b1;
-						break;
-					end
-					@( posedge clk );
-				end
-				@( posedge clk );
-				bus_valid		<= 1'b0;
+		while( !bus_rdata_en ) begin
+			@( posedge clk );
+			#1;
+			counter = counter + 1;
+			if( counter > 100 ) begin
+				time_out = 1'b1;
+				break;
 			end
-			begin
-				while( !bus_rdata_en ) begin
-					counter2		<= counter2 + 1;
-					if( counter2 > 100 ) begin
-						time_out	<= 1'b1;
-						break;
-					end
-					@( posedge clk );
-				end
-				value			<= bus_rdata;
-			end
-		join
-
-		bus_ioreq		<= 1'b0;
-		bus_address		<= 8'd0;
-		bus_wdata		<= 8'd0;
-		bus_write		<= 1'b0;
+		end
+		value			= bus_rdata;
+		bus_valid		= 1'b0;
+		bus_cs			= 1'b0;
+		bus_address		= 2'd0;
+		bus_wdata		= 8'd0;
+		bus_write		= 1'b0;
 		@( posedge clk );
+	endtask
+
+	// --------------------------------------------------------------------
+	task check(
+		input string	name,
+		input			condition
+	);
+		if( condition ) begin
+			$display( "OK   : %s", name );
+		end
+		else begin
+			$display( "ERROR: %s", name );
+			error_count = error_count + 1;
+		end
 	endtask
 
 	// --------------------------------------------------------------------
@@ -195,9 +193,10 @@ module tb ();
 		logic	[7:0]	data;
 
 		test_no			= -1;
+		error_count		= 0;
 		reset_n			= 0;
 		clk				= 1;
-		bus_ioreq		= 0;
+		bus_cs			= 0;
 		bus_address		= 0;
 		bus_write		= 0;
 		bus_valid		= 0;
@@ -210,7 +209,127 @@ module tb ();
 		reset_n			= 1;
 		@( posedge clk );
 
-		repeat( 100 ) @( posedge clk );
+		check( "SSG1 Ch.A PAN reset", u_dual_ssg.ssg_core0.ff_ssg_ch_a_pan == 8'd128 );
+		check( "SSG1 Ch.B PAN reset", u_dual_ssg.ssg_core0.ff_ssg_ch_b_pan == 8'd128 );
+		check( "SSG1 Ch.C PAN reset", u_dual_ssg.ssg_core0.ff_ssg_ch_c_pan == 8'd128 );
+		check( "SSG2 Ch.A PAN reset", u_dual_ssg.ssg_core1.ff_ssg_ch_a_pan == 8'd128 );
+		check( "SSG2 Ch.B PAN reset", u_dual_ssg.ssg_core1.ff_ssg_ch_b_pan == 8'd128 );
+		check( "SSG2 Ch.C PAN reset", u_dual_ssg.ssg_core1.ff_ssg_ch_c_pan == 8'd128 );
+
+		write_io( 2'd0, 8'h28, time_out );
+		check( "SSG1 Ch.A PAN address write", !time_out );
+		write_io( 2'd1, 8'd0, time_out );
+		check( "SSG1 Ch.A PAN 0 write", !time_out && u_dual_ssg.ssg_core0.ff_ssg_ch_a_pan == 8'd0 );
+
+		write_io( 2'd0, 8'h29, time_out );
+		write_io( 2'd1, 8'd128, time_out );
+		check( "SSG1 Ch.B PAN 128 write", !time_out && u_dual_ssg.ssg_core0.ff_ssg_ch_b_pan == 8'd128 );
+
+		write_io( 2'd0, 8'h2A, time_out );
+		write_io( 2'd1, 8'd255, time_out );
+		check( "SSG1 Ch.C PAN 255 write", !time_out && u_dual_ssg.ssg_core0.ff_ssg_ch_c_pan == 8'd255 );
+
+		write_io( 2'd0, 8'h2C, time_out );
+		write_io( 2'd1, 8'd1, time_out );
+		check( "SSG2 Ch.A PAN 1 write", !time_out && u_dual_ssg.ssg_core1.ff_ssg_ch_a_pan == 8'd1 );
+
+		write_io( 2'd0, 8'h2D, time_out );
+		write_io( 2'd1, 8'd64, time_out );
+		check( "SSG2 Ch.B PAN 64 write", !time_out && u_dual_ssg.ssg_core1.ff_ssg_ch_b_pan == 8'd64 );
+
+		write_io( 2'd0, 8'h2E, time_out );
+		write_io( 2'd1, 8'd192, time_out );
+		check( "SSG2 Ch.C PAN 192 write", !time_out && u_dual_ssg.ssg_core1.ff_ssg_ch_c_pan == 8'd192 );
+
+		write_io( 2'd0, 8'h28, time_out );
+		read_io( 2'd2, data, time_out );
+		check( $sformatf( "SSG1 Ch.A PAN read (data=%02h timeout=%0d)", data, time_out ), !time_out && data == 8'd0 );
+		write_io( 2'd0, 8'h29, time_out );
+		read_io( 2'd2, data, time_out );
+		check( $sformatf( "SSG1 Ch.B PAN read (data=%02h timeout=%0d)", data, time_out ), !time_out && data == 8'd128 );
+		write_io( 2'd0, 8'h2A, time_out );
+		read_io( 2'd2, data, time_out );
+		check( $sformatf( "SSG1 Ch.C PAN read (data=%02h timeout=%0d)", data, time_out ), !time_out && data == 8'd255 );
+		write_io( 2'd0, 8'h2C, time_out );
+		read_io( 2'd2, data, time_out );
+		check( $sformatf( "SSG2 Ch.A PAN read (data=%02h timeout=%0d)", data, time_out ), !time_out && data == 8'd1 );
+		write_io( 2'd0, 8'h2D, time_out );
+		read_io( 2'd2, data, time_out );
+		check( $sformatf( "SSG2 Ch.B PAN read (data=%02h timeout=%0d)", data, time_out ), !time_out && data == 8'd64 );
+		write_io( 2'd0, 8'h2E, time_out );
+		read_io( 2'd2, data, time_out );
+		check( $sformatf( "SSG2 Ch.C PAN read (data=%02h timeout=%0d)", data, time_out ), !time_out && data == 8'd192 );
+
+		force u_dual_ssg.ssg_core0.w_out_level = 10'd1023;
+		force u_dual_ssg.ssg_core0.ff_ssg_state = 5'd3;
+		@( posedge clk );
+		#1;
+		check( "SSG1 Ch.A PAN 0 left gain", u_dual_ssg.ssg_core0.w_out_level_l == 11'd1023 );
+		check( "SSG1 Ch.A PAN 0 right gain", u_dual_ssg.ssg_core0.w_out_level_r == 11'd0 );
+
+		force u_dual_ssg.ssg_core0.ff_ssg_state = 5'd2;
+		@( posedge clk );
+		#1;
+		check( "SSG1 Ch.B PAN 128 left gain", u_dual_ssg.ssg_core0.w_out_level_l == 11'd723 );
+		check( "SSG1 Ch.B PAN 128 right gain", u_dual_ssg.ssg_core0.w_out_level_r == 11'd723 );
+
+		force u_dual_ssg.ssg_core0.ff_ssg_state = 5'd1;
+		@( posedge clk );
+		#1;
+		check( "SSG1 Ch.C PAN 255 left gain", u_dual_ssg.ssg_core0.w_out_level_l == 11'd0 );
+		check( "SSG1 Ch.C PAN 255 right gain", u_dual_ssg.ssg_core0.w_out_level_r == 11'd1023 );
+
+		force u_dual_ssg.ssg_core1.w_out_level = 10'd1023;
+		force u_dual_ssg.ssg_core1.ff_ssg_state = 5'd3;
+		@( posedge clk );
+		#1;
+		check( "SSG2 Ch.A PAN 1 left gain", u_dual_ssg.ssg_core1.w_out_level_l == 11'd1023 );
+		check( "SSG2 Ch.A PAN 1 right gain", u_dual_ssg.ssg_core1.w_out_level_r == 11'd0 );
+
+		// ----------------------------------------------------------------
+		//	Channel volume registers (20h-22h / 24h-26h)
+		// ----------------------------------------------------------------
+		check( "SSG1 Ch.A volume reset", u_dual_ssg.ssg_core0.ff_ssg_ch_a_gain == 8'd128 );
+		check( "SSG1 Ch.B volume reset", u_dual_ssg.ssg_core0.ff_ssg_ch_b_gain == 8'd128 );
+		check( "SSG1 Ch.C volume reset", u_dual_ssg.ssg_core0.ff_ssg_ch_c_gain == 8'd128 );
+		check( "SSG2 Ch.A volume reset", u_dual_ssg.ssg_core1.ff_ssg_ch_a_gain == 8'd128 );
+		check( "SSG2 Ch.B volume reset", u_dual_ssg.ssg_core1.ff_ssg_ch_b_gain == 8'd128 );
+		check( "SSG2 Ch.C volume reset", u_dual_ssg.ssg_core1.ff_ssg_ch_c_gain == 8'd128 );
+
+		write_io( 2'd0, 8'h20, time_out );
+		write_io( 2'd1, 8'd64, time_out );
+		check( "SSG1 Ch.A volume 64 write", !time_out && u_dual_ssg.ssg_core0.ff_ssg_ch_a_gain == 8'd64 );
+		write_io( 2'd0, 8'h20, time_out );
+		read_io( 2'd2, data, time_out );
+		check( $sformatf( "SSG1 Ch.A volume read (data=%02h timeout=%0d)", data, time_out ), !time_out && data == 8'd64 );
+
+		write_io( 2'd0, 8'h24, time_out );
+		write_io( 2'd1, 8'd0, time_out );
+		check( "SSG2 Ch.A volume 0 write", !time_out && u_dual_ssg.ssg_core1.ff_ssg_ch_a_gain == 8'd0 );
+
+		//	SSG1 Ch.A: PAN=0 (full left), volume=64 -> half level on the left
+		force u_dual_ssg.ssg_core0.ff_ssg_state = 5'd3;
+		@( posedge clk );
+		#1;
+		check( "SSG1 Ch.A volume 64 left gain", u_dual_ssg.ssg_core0.w_out_level_l == 11'd511 );
+		check( "SSG1 Ch.A volume 64 right gain", u_dual_ssg.ssg_core0.w_out_level_r == 11'd0 );
+
+		//	SSG2 Ch.A: volume=0 -> muted
+		@( posedge clk );
+		#1;
+		check( "SSG2 Ch.A volume 0 left gain", u_dual_ssg.ssg_core1.w_out_level_l == 11'd0 );
+		check( "SSG2 Ch.A volume 0 right gain", u_dual_ssg.ssg_core1.w_out_level_r == 11'd0 );
+		release u_dual_ssg.ssg_core0.ff_ssg_state;
+		release u_dual_ssg.ssg_core0.w_out_level;
+		release u_dual_ssg.ssg_core1.ff_ssg_state;
+		release u_dual_ssg.ssg_core1.w_out_level;
+
+		if( error_count == 0 ) begin
+			$display( "PASS: dual SSG PAN/volume registers and stereo gains" );
+		end
+		else begin
+			$fatal( 1, "FAIL: %0d dual SSG PAN/volume errors", error_count );
+		end
 		$finish;
 	end
 endmodule

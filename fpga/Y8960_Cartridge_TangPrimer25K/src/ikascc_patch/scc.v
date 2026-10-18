@@ -16,7 +16,7 @@ module scc (
 	input	[7:0]	bus_wdata,
 	output	[7:0]	bus_rdata,
 	output			bus_rdata_en,
-	output			scc_memory_cs,
+	output			scc_memory_cs,	//	active low: 4000h-BFFFh mapper memory (not SCC registers)
 	output	[18:13]	scc_ma,
 	output	[10:0]	sound_out		//	signed
 );
@@ -24,6 +24,7 @@ module scc (
 	wire			w_wr_n;
 	wire			w_rd_n;
 	wire	[10:0]	w_sound_out;
+	wire	[7:0]	w_db;
 
 	// --------------------------------------------------------------------
 	//	Address decode
@@ -50,11 +51,14 @@ module scc (
 		.i_ABLO					( bus_address[7:0]		),
 		.i_ABHI					( bus_address[15:11]	),
 		.i_DB					( bus_wdata				),
-		.o_DB					( bus_rdata				),
+		.o_DB					( w_db					),
 		.o_DB_OE				( bus_rdata_en			),
 		.o_ROMCS_n				( scc_memory_cs			),
 		.o_ROMADDR				( scc_ma				),
 		.o_SOUND				( sound_out	    		),
 		.o_TEST					(						)
 	);
+
+	//	bus_rdata of all devices are ANDed at the top level.
+	assign bus_rdata	= bus_rdata_en ? w_db : 8'hFF;
 endmodule

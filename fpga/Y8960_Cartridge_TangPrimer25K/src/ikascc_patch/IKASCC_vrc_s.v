@@ -66,7 +66,9 @@ wire			rst_n = i_RST_n;
 //////	ROM bank registers
 ////
 
-assign	o_ROMCS_n = i_CS_n;
+//	ROM chip select: 4000h-BFFFh, except the SCC register window
+wire			sccreg_window;
+assign	o_ROMCS_n = i_CS_n | ~(i_ABHI[4] ^ i_ABHI[3]) | sccreg_window;
 
 //synchronizer
 reg		[7:0]	db_z;
@@ -135,6 +137,8 @@ end
 ///////////////////////////////////////////////////////////
 //////	SCC register enable
 ////
+
+assign	sccreg_window = ((bankreg2 == 6'h3F) & (i_ABHI == 5'b1001_1)) | (rammode & (bankreg1 == 6'h3F) & (i_ABHI == 5'b0111_1));
 
 generate
 	if(RAMCTRL_ASYNC == 0) begin : ramctrl_sync

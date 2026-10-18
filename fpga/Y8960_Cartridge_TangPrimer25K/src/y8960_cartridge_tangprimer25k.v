@@ -100,14 +100,13 @@ module y8960cartridge_tangprimer25k (
 	wire	[7:0]	w_bus_wdata;
 	wire	[7:0]	w_bus_rdata;
 	wire			w_bus_rdata_en;
-	wire			w_scc_bank_ready;
+	wire			w_scc_bank_wait_n;
 
 	wire			w_bus_timer_cs;
 	wire			w_bus_opl2_cs;
 	wire			w_bus_opll_cs;
 	wire			w_bus_ssg_cs;
 	wire			w_bus_scc_cs;
-	wire			w_bus_dcsg_cs;
 
 	wire			w_bus_timer_ready;
 	wire	[7:0]	w_bus_timer_rdata;
@@ -128,18 +127,17 @@ module y8960cartridge_tangprimer25k (
 	wire			w_bus_scc_rdata_en;
 	wire			w_scc_memory_cs;
 	wire	[5:0]	w_scc_ma;
+	wire			w_mixer_reg_en;
+	wire	[7:0]	w_ssg_volume;
+	wire	[7:0]	w_opll_volume;
+	wire	[7:0]	w_opl2_volume;
+	wire	[7:0]	w_scc_volume;
 
 	wire	[7:0]	w_bus_scc_bank_rdata;
 	wire			w_bus_scc_bank_rdata_en;
 
-	wire			w_bus_dcsg_ready;
-
-	wire	[15:0]	w_opl2_sound_out0;
-	wire	[15:0]	w_opl2_sound_out1;
-	wire	[15:0]	w_adpcm_sound_out_l0;
-	wire	[15:0]	w_adpcm_sound_out_r0;
-	wire	[15:0]	w_adpcm_sound_out_l1;
-	wire	[15:0]	w_adpcm_sound_out_r1;
+	wire	[15:0]	w_opl2_sound_out_l;
+	wire	[15:0]	w_opl2_sound_out_r;
 	wire			w_adpcm_write;
 	wire			w_adpcm_valid;
 	wire			w_adpcm_ready;
@@ -148,16 +146,13 @@ module y8960cartridge_tangprimer25k (
 	wire	[7:0]	w_adpcm_rdata;
 	wire			w_adpcm_rdata_en;
 
-	wire	[15:0]	w_opll_sound_out0;
-	wire	[15:0]	w_opll_sound_out1;
+	wire	[15:0]	w_opll_sound_l_out;
+	wire	[15:0]	w_opll_sound_r_out;
 
-	wire	[11:0]	w_ssg_sound_out0;
-	wire	[11:0]	w_ssg_sound_out1;
+	wire	[12:0]	w_ssg_sound_l_out;
+	wire	[12:0]	w_ssg_sound_r_out;
 
 	wire	[10:0]	w_scc_sound_out;
-
-	wire	[13:0]	w_dcsg_sound_out0;
-	wire	[13:0]	w_dcsg_sound_out1;
 
 	reg		[3:0]	ff_divider;
 	reg				ff_enable;
@@ -165,8 +160,8 @@ module y8960cartridge_tangprimer25k (
 	wire			w_timer_intr_n;
 	wire			w_opl2_intr_n;
 	wire	[3:0]	w_led;
-	reg		[23:0]	ff_sound_l;
-	reg		[23:0]	ff_sound_r;
+	wire signed	[23:0]	w_audio_l;
+	wire signed	[23:0]	w_audio_r;
 
 	wire	[17:0]	w_cpu_address;
 	wire			w_cpu_valid;
@@ -188,8 +183,10 @@ module y8960cartridge_tangprimer25k (
 	wire			w_init_rom_bus_ready;
 	wire			w_init_rom_bus_write;
 	wire	[7:0]	w_init_rom_bus_wdata;
-	wire	[7:0]	w_init_rom_bus_rdata;
-	wire			w_init_rom_bus_rdata_en;
+	wire	[7:0]	w_init_rom_stream_rdata;
+	wire			w_init_rom_stream_valid;
+	wire			w_init_rom_stream_ready;
+	wire			w_init_rom_stream_stop;
 	wire			w_rom_bus_address_sel;
 	wire			w_rom_bus_valid_sel;
 	wire			w_rom_bus_write_sel;
@@ -202,15 +199,21 @@ module y8960cartridge_tangprimer25k (
 	wire	[7:0]	w_sram_wdata;
 	wire	[7:0]	w_sram_rdata;
 	wire			w_sram_rdata_en;
-	wire			w_init_sram_bus_address;
+	wire	[18:0]	w_init_sram_bus_address;
 	wire			w_init_sram_bus_valid;
 	wire			w_init_sram_bus_ready;
 	wire			w_init_sram_bus_write;
+	wire			w_init_sram_bus_burst;
 	wire	[7:0]	w_init_sram_bus_wdata;
 	wire	[18:0]	w_sram_address_sel;
 	wire			w_sram_valid_sel;
 	wire			w_sram_write_sel;
+	wire			w_sram_burst_sel;
 	wire	[7:0]	w_sram_wdata_sel;
+	wire			w_arb_sram_ready;
+	wire			w_arb_sram_rdata_en;
+	wire			w_sysctrl_rom_bus_ready;
+	wire			w_sysctrl_rom_bus_rdata_en;
 
 	wire			w_bus_sysctrl_cs;
 	wire			w_bus_sysctrl_ready;
@@ -218,9 +221,47 @@ module y8960cartridge_tangprimer25k (
 	wire			w_bus_sysctrl_rdata_en;
 	wire			w_wait_n;
 	wire			w_sram_initialize;
+	reg		[1:0]	ff_slot_switch_sync = 2'b11;
+	reg		[15:0]	ff_slot_switch_count = 16'd0;
+	reg				ff_slot_connect_request = 1'b0;
+	reg		[1:0]	ff_slot_idle_sync = 2'b00;
+	reg				ff_slot_connected = 1'b0;
 
-//	assign slot_wait	= w_wait_n;
-	assign slot_wait	= 1'b0;
+	//	SLOT_WAIT: 1 or HiZ -> /WAIT=0 (MSX waits), 0 -> /WAIT=HiZ
+	assign slot_wait	= ff_slot_connected & ~(w_wait_n & w_scc_bank_wait_n);
+
+	//	DIPSW[1]: OFF/open = disconnected, ON/GND = connected.
+	//	Debounce for about 1.5ms; connect only between /RD and /WR cycles.
+	always @( posedge clk_42m ) begin
+		if( !w_reset_n ) begin
+			ff_slot_switch_sync		<= 2'b11;
+			ff_slot_switch_count	<= 16'd0;
+			ff_slot_connect_request	<= 1'b0;
+			ff_slot_idle_sync		<= 2'b00;
+			ff_slot_connected		<= 1'b0;
+		end
+		else begin
+			ff_slot_switch_sync	<= { ff_slot_switch_sync[0], dipsw[1] };
+			ff_slot_idle_sync	<= { ff_slot_idle_sync[0], slot_rd_n & slot_wr_n };
+			if( ff_slot_connect_request == ~ff_slot_switch_sync[1] ) begin
+				ff_slot_switch_count <= 16'd0;
+			end
+			else if( ff_slot_switch_count == 16'hFFFF ) begin
+				ff_slot_connect_request <= ~ff_slot_switch_sync[1];
+				ff_slot_switch_count <= 16'd0;
+			end
+			else begin
+				ff_slot_switch_count <= ff_slot_switch_count + 16'd1;
+			end
+
+			if( !ff_slot_connect_request ) begin
+				ff_slot_connected <= 1'b0;
+			end
+			else if( ff_slot_idle_sync[1] && slot_rd_n && slot_wr_n ) begin
+				ff_slot_connected <= 1'b1;
+			end
+		end
+	end
 
 	// ---------------------------------------------------------
 	always @( posedge clk_42m ) begin
@@ -255,12 +296,13 @@ module y8960cartridge_tangprimer25k (
 	msx_slot u_msx_slot (
 		.clk					( clk_42m					),
 		.reset_n				( w_reset_n					),
+		.slot_enable			( ff_slot_connected			),
 		.p_slot_reset_n			( slot_reset_n				),
 		.p_slot_sltsl_n			( slot_sltsl_n				),
 		.p_slot_memreq_n		( slot_mereq_n				),
 		.p_slot_ioreq_n			( slot_ioreq_n				),
-		.p_slot_wr_n			( slot_wr_n					),
-		.p_slot_rd_n			( slot_rd_n					),
+		.p_slot_wr_n			( slot_wr_n | ~ff_slot_connected	),
+		.p_slot_rd_n			( slot_rd_n | ~ff_slot_connected	),
 		.p_slot_address			( slot_a					),
 		.p_slot_data			( slot_d					),
 		.p_slot_int				( slot_intr					),
@@ -273,8 +315,16 @@ module y8960cartridge_tangprimer25k (
 		.bus_ready				( w_bus_ready				),
 		.bus_wdata				( w_bus_wdata				),
 		.bus_rdata				( w_bus_rdata				),
-		.bus_rdata_en			( w_bus_rdata_en			)
+		.bus_rdata_en			( w_bus_rdata_en			),
+		.mixer_reg_en			( w_mixer_reg_en			),
+		.ssg_volume				( w_ssg_volume				),
+		.opll_volume			( w_opll_volume				),
+		.opl2_volume			( w_opl2_volume				),
+		.scc_volume				( w_scc_volume				)
 	);
+
+	//	In RAM mode, BANK1 #0-#15 remains ROM and keeps the memory mapped I/O visible.
+	assign w_mixer_reg_en = ~w_scc_ma[5] | ~w_scc_ma[4];
 
 	// ---------------------------------------------------------
 	y8960_address_decode u_y8960_address_decode (
@@ -291,16 +341,14 @@ module y8960cartridge_tangprimer25k (
 		.bus_opl2_cs			( w_bus_opl2_cs				),
 		.bus_ssg_cs				( w_bus_ssg_cs				),
 		.bus_scc_cs				( w_bus_scc_cs				),
-		.bus_dcsg_cs			( w_bus_dcsg_cs				),
 		.bus_sysctrl_cs			( w_bus_sysctrl_cs			),
 		.bus_timer_ready		( w_bus_timer_ready			),
 		.bus_opll_ready			( w_bus_opll_ready			),
 		.bus_opl2_ready			( w_bus_opl2_ready			),
 		.bus_ssg_ready			( w_bus_ssg_ready			),
 		.bus_scc_ready			( w_bus_scc_ready			),
-		.bus_dcsg_ready			( w_bus_dcsg_ready			),
 		.bus_sysctrl_ready		( w_bus_sysctrl_ready		),
-		.memory_io_en			( ~w_scc_ma[5]				),
+		.memory_io_en			( w_mixer_reg_en			),
 		.led					(							)
 	);
 
@@ -313,13 +361,14 @@ module y8960cartridge_tangprimer25k (
 		.reset_n				( w_reset_n					),
 		.bus_cs					( w_bus_scc_cs				),
 		.bus_address			( w_bus_address				),
+		.bus_io					( w_bus_io					),
 		.bus_valid				( w_bus_valid				),
-		.bus_ready				( w_scc_bank_ready			),
 		.bus_write				( w_bus_write				),
 		.bus_wdata				( w_bus_wdata				),
 		.bus_rdata				( w_bus_scc_bank_rdata		),
 		.bus_rdata_en			( w_bus_scc_bank_rdata_en	),
-		.scc_memory_cs			( w_scc_memory_cs			),
+		.wait_n					( w_scc_bank_wait_n			),
+		.scc_memory_cs_n		( w_scc_memory_cs			),
 		.scc_ma					( w_scc_ma					),
 		.cpu_address			( w_cpu_address				),
 		.cpu_valid				( w_cpu_valid				),
@@ -346,24 +395,20 @@ module y8960cartridge_tangprimer25k (
 	);
 
 	// ---------------------------------------------------------
-	dual_opl2 u_dual_opl2 (
+	opl2 u_opl2 (
 		.clk					( clk_42m					),
 		.reset_n				( w_reset_n					),
 		.enable					( ff_enable					),
 		.bus_cs					( w_bus_opl2_cs				),
-		.bus_address			( w_bus_address[1:0]		),
+		.bus_address			( w_bus_address[0]			),
 		.bus_write				( w_bus_write				),
 		.bus_valid				( w_bus_valid				),
 		.bus_ready				( w_bus_opl2_ready			),
 		.bus_wdata				( w_bus_wdata				),
 		.bus_rdata				( w_bus_opl2_rdata			),
 		.bus_rdata_en			( w_bus_opl2_rdata_en		),
-		.opl2_sound_out_0		( w_opl2_sound_out0			),
-		.opl2_sound_out_1		( w_opl2_sound_out1			),
-		.adpcm_sound_out_l0		( w_adpcm_sound_out_l0		),
-		.adpcm_sound_out_r0		( w_adpcm_sound_out_r0		),
-		.adpcm_sound_out_l1		( w_adpcm_sound_out_l1		),
-		.adpcm_sound_out_r1		( w_adpcm_sound_out_r1		),
+		.opl2_sound_out_l		( w_opl2_sound_out_l		),
+		.opl2_sound_out_r		( w_opl2_sound_out_r		),
 		.intr_n					( w_opl2_intr_n				),
 		.adpcm_write			( w_adpcm_write				),
 		.adpcm_valid			( w_adpcm_valid				),
@@ -375,18 +420,18 @@ module y8960cartridge_tangprimer25k (
 	);
 
 	// ---------------------------------------------------------
-	dual_opll u_dual_opll (
+	opllex u_opllex (
 		.clk					( clk_42m					),
 		.reset_n				( w_reset_n					),
 		.enable					( ff_enable					),
 		.bus_cs					( w_bus_opll_cs				),
-		.bus_address			( w_bus_address[1:0]		),
+		.bus_address			( w_bus_address[0]			),
 		.bus_write				( w_bus_write				),
 		.bus_valid				( w_bus_valid				),
 		.bus_ready				( w_bus_opll_ready			),
 		.bus_wdata				( w_bus_wdata				),
-		.sound_out0				( w_opll_sound_out0			),
-		.sound_out1				( w_opll_sound_out1			)
+		.sound_l_out			( w_opll_sound_l_out		),
+		.sound_r_out			( w_opll_sound_r_out		)
 	);
 
 	// ---------------------------------------------------------
@@ -408,8 +453,8 @@ module y8960cartridge_tangprimer25k (
 		.ssg_iob0				( 							),
 		.ssg_ioa1				( { 6'd0, dipsw }			),
 		.ssg_iob1				(							),
-		.sound_out0				( w_ssg_sound_out0			),
-		.sound_out1				( w_ssg_sound_out1			),
+		.sound_l_out			( w_ssg_sound_l_out			),
+		.sound_r_out			( w_ssg_sound_r_out			),
 		.mode					( 2'b11						)
 	);
 
@@ -434,25 +479,10 @@ module y8960cartridge_tangprimer25k (
 	);
 
 	// ---------------------------------------------------------
-	dual_dcsg u_dcsg (
-		.clk					( clk_42m					),
-		.reset_n				( w_reset_n					),
-		.enable					( ff_enable					),
-		.bus_cs					( w_bus_dcsg_cs				),
-		.bus_address			( w_bus_address[0]			),
-		.bus_write				( w_bus_write				),
-		.bus_valid				( w_bus_valid				),
-		.bus_ready				( w_bus_dcsg_ready			),
-		.bus_wdata				( w_bus_wdata				),
-		.sound_out0				( w_dcsg_sound_out0			),
-		.sound_out1				( w_dcsg_sound_out1			)
-	);
-
-	// ---------------------------------------------------------
 	//	System Controller
 	// ---------------------------------------------------------
 	system_controller #(
-		.device_id				( 8'h61						)
+		.device_id				( 8'h02						)
 	) u_system_controller (
 		.clk					( clk_42m					),
 		.reset_n				( w_reset_n					),
@@ -466,41 +496,49 @@ module y8960cartridge_tangprimer25k (
 		.bus_rdata_en			( w_bus_sysctrl_rdata_en	),
 		.rom_bus_address		( w_rom_bus_address			),
 		.rom_bus_valid			( w_rom_bus_valid			),
-		.rom_bus_ready			( w_rom_bus_ready			),
+		.rom_bus_ready			( w_sysctrl_rom_bus_ready	),
 		.rom_bus_write			( w_rom_bus_write			),
 		.rom_bus_wdata			( w_rom_bus_wdata			),
 		.rom_bus_rdata			( w_rom_bus_rdata			),
-		.rom_bus_rdata_en		( w_rom_bus_rdata_en		),
+		.rom_bus_rdata_en		( w_sysctrl_rom_bus_rdata_en	),
 		.init_rom_bus_address	( w_init_rom_bus_address	),
 		.init_rom_bus_valid		( w_init_rom_bus_valid		),
 		.init_rom_bus_ready		( w_init_rom_bus_ready		),
 		.init_rom_bus_write		( w_init_rom_bus_write		),
 		.init_rom_bus_wdata		( w_init_rom_bus_wdata		),
-		.init_rom_bus_rdata		( w_init_rom_bus_rdata		),
-		.init_rom_bus_rdata_en	( w_init_rom_bus_rdata_en	),
+		.init_rom_stream_rdata	( w_init_rom_stream_rdata	),
+		.init_rom_stream_valid	( w_init_rom_stream_valid	),
+		.init_rom_stream_ready	( w_init_rom_stream_ready	),
+		.init_rom_stream_stop	( w_init_rom_stream_stop	),
 		.sram_ready				( w_sram_ready				),
 		.init_sram_bus_address	( w_init_sram_bus_address	),
 		.init_sram_bus_valid	( w_init_sram_bus_valid		),
 		.init_sram_bus_ready	( w_init_sram_bus_ready		),
 		.init_sram_bus_write	( w_init_sram_bus_write		),
+		.init_sram_bus_burst	( w_init_sram_bus_burst		),
 		.init_sram_bus_wdata	( w_init_sram_bus_wdata		),
 		.sram_initialize		( w_sram_initialize			),
 		.wait_n					( w_wait_n					)
 	);
 
-	assign w_rom_bus_address_sel = w_sram_initialize ? w_init_rom_bus_address : w_rom_bus_address;
-	assign w_rom_bus_valid_sel = w_sram_initialize ? w_init_rom_bus_valid : w_rom_bus_valid;
-	assign w_rom_bus_write_sel = w_sram_initialize ? w_init_rom_bus_write : w_rom_bus_write;
-	assign w_rom_bus_wdata_sel = w_sram_initialize ? w_init_rom_bus_wdata : w_rom_bus_wdata;
-	assign w_init_rom_bus_ready = w_rom_bus_ready;
-	assign w_init_rom_bus_rdata = w_rom_bus_rdata;
-	assign w_init_rom_bus_rdata_en = w_rom_bus_rdata_en;
+	assign w_rom_bus_address_sel	= w_sram_initialize ? w_init_rom_bus_address : w_rom_bus_address;
+	assign w_rom_bus_valid_sel		= w_sram_initialize ? w_init_rom_bus_valid : w_rom_bus_valid;
+	assign w_rom_bus_write_sel		= w_sram_initialize ? w_init_rom_bus_write : w_rom_bus_write;
+	assign w_rom_bus_wdata_sel		= w_sram_initialize ? w_init_rom_bus_wdata : w_rom_bus_wdata;
+	assign w_init_rom_bus_ready		= w_rom_bus_ready;
 
-	assign w_sram_address_sel = w_sram_initialize ? w_init_sram_bus_address : w_sram_address;
-	assign w_sram_valid_sel = w_sram_initialize ? w_init_sram_bus_valid : w_sram_valid;
-	assign w_sram_write_sel = w_sram_initialize ? w_init_sram_bus_write : w_sram_write;
-	assign w_sram_wdata_sel = w_sram_initialize ? w_init_sram_bus_wdata : w_sram_wdata;
-	assign w_init_sram_bus_ready = w_sram_ready;
+	assign w_sram_address_sel		= w_sram_initialize ? w_init_sram_bus_address : w_sram_address;
+	assign w_sram_valid_sel			= w_sram_initialize ? w_init_sram_bus_valid : w_sram_valid;
+	assign w_sram_write_sel			= w_sram_initialize ? w_init_sram_bus_write : w_sram_write;
+	assign w_sram_burst_sel			= w_sram_initialize & w_init_sram_bus_burst;
+	assign w_sram_wdata_sel			= w_sram_initialize ? w_init_sram_bus_wdata : w_sram_wdata;
+	assign w_init_sram_bus_ready	= w_sram_ready;
+
+	//	While booting, SPI ROM and SerialSRAM are owned by the boot copy sequencer.
+	assign w_sysctrl_rom_bus_ready		= w_rom_bus_ready & ~w_sram_initialize;
+	assign w_sysctrl_rom_bus_rdata_en	= w_rom_bus_rdata_en & ~w_sram_initialize;
+	assign w_arb_sram_ready				= w_sram_ready & ~w_sram_initialize;
+	assign w_arb_sram_rdata_en			= w_sram_rdata_en & ~w_sram_initialize;
 
 	// ---------------------------------------------------------
 	//	SRAM Arbiter
@@ -524,11 +562,11 @@ module y8960cartridge_tangprimer25k (
 		.adpcm_rdata_en		( w_adpcm_rdata_en			),
 		.ssram_address		( w_sram_address			),
 		.ssram_valid		( w_sram_valid				),
-		.ssram_ready		( w_sram_ready				),
+		.ssram_ready		( w_arb_sram_ready			),
 		.ssram_write		( w_sram_write				),
 		.ssram_wdata		( w_sram_wdata				),
 		.ssram_rdata		( w_sram_rdata				),
-		.ssram_rdata_en		( w_sram_rdata_en			)
+		.ssram_rdata_en		( w_arb_sram_rdata_en		)
 	);
 
 	// ---------------------------------------------------------
@@ -546,6 +584,10 @@ module y8960cartridge_tangprimer25k (
 		.bus_wdata			( w_rom_bus_wdata_sel		),
 		.bus_rdata			( w_rom_bus_rdata			),
 		.bus_rdata_en		( w_rom_bus_rdata_en		),
+		.stream_rdata		( w_init_rom_stream_rdata	),
+		.stream_valid		( w_init_rom_stream_valid	),
+		.stream_ready		( w_init_rom_stream_ready	),
+		.stream_stop		( w_init_rom_stream_stop	),
 		.srom_cs_n			( flash_spi_cs_n			),
 		.srom_clk			( flash_spi_clk				),
 		.srom_hold_n		( flash_spi_io[3]			),
@@ -564,6 +606,7 @@ module y8960cartridge_tangprimer25k (
 		.bus_cs				( 1'b1						),
 		.bus_address		( w_sram_address_sel		),
 		.bus_write			( w_sram_write_sel			),
+		.bus_burst			( w_sram_burst_sel			),
 		.bus_valid			( w_sram_valid_sel			),
 		.bus_wdata			( w_sram_wdata_sel			),
 		.bus_ready			( w_sram_ready				),
@@ -575,89 +618,36 @@ module y8960cartridge_tangprimer25k (
 	);
 
 	// ---------------------------------------------------------
-	//	Simple mixer with fixed gain + saturation.
-	//	The raw sum only fills the lower ~19 bits of the 24bit field,
-	//	so a left shift is applied to raise the output volume.
+	//	Time-multiplexed audio mixer
 	// ---------------------------------------------------------
-	localparam			c_mix_gain_shift	= 4;						//	x16 (about +24dB)
-	localparam			c_mix_ext_bits		= c_mix_gain_shift + 1;		//	guard bit for the overflow check
-	localparam			c_mix_ext_width		= 24 + c_mix_ext_bits;
-
-	wire	[23:0]					w_mix_l;
-	wire	[23:0]					w_mix_r;
-	reg		[23:0]					ff_mix_l;
-	reg		[23:0]					ff_mix_r;
-	wire	[c_mix_ext_width-1:0]	w_mix_l_ext;
-	wire	[c_mix_ext_width-1:0]	w_mix_r_ext;
-	wire	[c_mix_ext_width-1:0]	w_mix_l_shifted;
-	wire	[c_mix_ext_width-1:0]	w_mix_r_shifted;
-	wire							w_mix_l_of;
-	wire							w_mix_r_of;
-
-	assign w_mix_l	= 
-			{ 12'd0, w_ssg_sound_out0 } + { 12'd0, w_ssg_sound_out1 } +
-			{ {8{w_opll_sound_out0[15]}}, w_opll_sound_out0 } + { {8{w_opll_sound_out1[15]}}, w_opll_sound_out1 } +
-			{ {8{w_opl2_sound_out0[15]}}, w_opl2_sound_out0 } + { {8{w_opl2_sound_out1[15]}}, w_opl2_sound_out1 } +
-			{ {8{w_adpcm_sound_out_l0[15]}}, w_adpcm_sound_out_l0 } + { {8{w_adpcm_sound_out_l1[15]}}, w_adpcm_sound_out_l1 } +
-			{ {8{w_adpcm_sound_out_r0[15]}}, w_adpcm_sound_out_r0 } + { {8{w_adpcm_sound_out_r1[15]}}, w_adpcm_sound_out_r1 } +
-			{ {10{w_dcsg_sound_out0[13]}}, w_dcsg_sound_out0 } + { {10{w_dcsg_sound_out1[13]}}, w_dcsg_sound_out1 } +
-			{ {11{w_scc_sound_out[10]}}, w_scc_sound_out, 2'd0 };
-
-	assign w_mix_r	= 
-			{ 12'd0, w_ssg_sound_out0 } + { 12'd0, w_ssg_sound_out1 } +
-			{ {8{w_opll_sound_out0[15]}}, w_opll_sound_out0 } + { {8{w_opll_sound_out1[15]}}, w_opll_sound_out1 } +
-			{ {8{w_opl2_sound_out0[15]}}, w_opl2_sound_out0 } + { {8{w_opl2_sound_out1[15]}}, w_opl2_sound_out1 } +
-			{ {8{w_adpcm_sound_out_l0[15]}}, w_adpcm_sound_out_l0 } + { {8{w_adpcm_sound_out_l1[15]}}, w_adpcm_sound_out_l1 } +
-			{ {8{w_adpcm_sound_out_r0[15]}}, w_adpcm_sound_out_r0 } + { {8{w_adpcm_sound_out_r1[15]}}, w_adpcm_sound_out_r1 } +
-			{ {10{w_dcsg_sound_out0[13]}}, w_dcsg_sound_out0 } + { {10{w_dcsg_sound_out1[13]}}, w_dcsg_sound_out1 } +
-			{ {11{w_scc_sound_out[10]}}, w_scc_sound_out, 2'd0 };
-
-	//	Latch the adder's output once on clk_42m before crossing into the
-	//	clk_24m domain, so u_i2s never samples a mid-ripple-carry glitch.
-	always @( posedge clk_42m ) begin
-		if( !w_reset_n ) begin
-			ff_mix_l	<= 24'd0;
-			ff_mix_r	<= 24'd0;
-		end
-		else begin
-			ff_mix_l	<= w_mix_l;
-			ff_mix_r	<= w_mix_r;
-		end
-	end
-
-	//	sign-extend by (c_mix_gain_shift+1) bits before shifting, so the
-	//	bits shifted out remain available for the overflow check below.
-	assign w_mix_l_ext		= { {c_mix_ext_bits{ff_mix_l[23]}}, ff_mix_l };
-	assign w_mix_r_ext		= { {c_mix_ext_bits{ff_mix_r[23]}}, ff_mix_r };
-	assign w_mix_l_shifted	= w_mix_l_ext << c_mix_gain_shift;
-	assign w_mix_r_shifted	= w_mix_r_ext << c_mix_gain_shift;
-
-	assign w_mix_l_of		= (w_mix_l_shifted[c_mix_ext_width-1:23] != {(c_mix_ext_bits+1){w_mix_l_shifted[23]}});
-	assign w_mix_r_of		= (w_mix_r_shifted[c_mix_ext_width-1:23] != {(c_mix_ext_bits+1){w_mix_r_shifted[23]}});
-
-	//	Latch the gain/saturation result once more on clk_42m before u_i2s
-	//	(clk_24m domain) samples it.
-	always @( posedge clk_42m ) begin
-		if( !w_reset_n ) begin
-			ff_sound_l	<= 24'd0;
-			ff_sound_r	<= 24'd0;
-		end
-		else begin
-			ff_sound_l	<= w_mix_l_of ? (w_mix_l_shifted[c_mix_ext_width-1] ? 24'h800000 : 24'h7FFFFF) : w_mix_l_shifted[23:0];
-			ff_sound_r	<= w_mix_r_of ? (w_mix_r_shifted[c_mix_ext_width-1] ? 24'h800000 : 24'h7FFFFF) : w_mix_r_shifted[23:0];
-		end
-	end
+	mixier u_mixier (
+		.clk				( clk_42m					),
+		.reset_n			( w_reset_n					),
+		.ssg_l				( w_ssg_sound_l_out			),
+		.ssg_r				( w_ssg_sound_r_out			),
+		.opll_l				( w_opll_sound_l_out		),
+		.opll_r				( w_opll_sound_r_out		),
+		.opl2_l				( w_opl2_sound_out_l		),
+		.opl2_r				( w_opl2_sound_out_r		),
+		.scc				( w_scc_sound_out			),
+		.ssg_volume			( w_ssg_volume				),
+		.opll_volume		( w_opll_volume				),
+		.opl2_volume		( w_opl2_volume				),
+		.scc_volume			( w_scc_volume				),
+		.audio_l_out		( w_audio_l					),
+		.audio_r_out		( w_audio_r					)
+	);
 
 	i2s_audio u_i2s (
 		.clk				( clk_24m					),
 		.reset_n			( w_reset_n					),
-		.sound_l_in			( ff_sound_l				),
-		.sound_r_in			( ff_sound_r				),
+		.sound_l_in			( w_audio_l					),
+		.sound_r_in			( w_audio_r					),
 		.i2s_audio_din		( audio_sdata				),
 		.i2s_audio_lrclk	( audio_lrclk				),
 		.i2s_audio_bclk		( audio_bclk				)
 	);
 
 	assign audio_mclk	= 1'bz;
-	assign w_led		= ff_mix_l[3:0];
+	assign w_led		= w_audio_l[3:0];
 endmodule
