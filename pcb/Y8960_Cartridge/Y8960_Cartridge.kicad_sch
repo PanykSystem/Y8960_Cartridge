@@ -6647,6 +6647,17 @@
 		)
 		(uuid "a4a94a59-6646-4688-9b31-205ad67c71e3")
 	)
+	(text "SLOT_BUSDIR\n0: Cartridge ← CPU (WRITE)\n1: Cartridge → CPU (READ)"
+		(exclude_from_sim no)
+		(at 250.698 90.424 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "aa72cb43-8b58-442f-a4ec-8b0e986ea8d6")
+	)
 	(text "TDI"
 		(exclude_from_sim no)
 		(at 40.64 247.65 0)
@@ -6658,16 +6669,27 @@
 		)
 		(uuid "bd9a5234-6099-47f4-9d8b-93e31394ed2d")
 	)
-	(text "SLOT_DATA_DIR\n0: CPU → Cartridge (WRITE)\n1: CPU ← Cartridge (READ)"
+	(text "/BUSDIR\nHiZ: Cartridge ← CPU (WRITE)\n0: Cartridge → CPU (READ)"
 		(exclude_from_sim no)
-		(at 192.278 30.734 0)
+		(at 237.49 23.114 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify left bottom)
 		)
-		(uuid "d3920d11-1b7d-4fc6-9771-7b635bf07f7c")
+		(uuid "c6aa6ceb-c62f-40d6-a377-8d3f809d7997")
+	)
+	(text "SLOT_BUSDIR\n0: Cartridge ← CPU (WRITE)\n1: Cartridge → CPU (READ)"
+		(exclude_from_sim no)
+		(at 192.786 30.988 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "d7ffb967-a404-4dad-8fdc-bc84e43aa600")
 	)
 	(text "TCK"
 		(exclude_from_sim no)
@@ -6701,17 +6723,6 @@
 			(justify left bottom)
 		)
 		(uuid "e4fab210-b1a9-47d0-b468-61bead77361a")
-	)
-	(text "/BUSDIR\n1: CPU → Cartridge (WRITE)\n0: CPU ← Cartridge (READ)"
-		(exclude_from_sim no)
-		(at 233.172 24.13 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "e65d5633-543d-4f17-97f1-3e37d7214b96")
 	)
 	(text "GND"
 		(exclude_from_sim no)
@@ -12659,6 +12670,28 @@
 			)
 		)
 	)
+	(global_label "SLOT_BUSDIR"
+		(shape input)
+		(at 208.28 34.29 180)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "1f4ad1f6-c6a9-4286-8875-e2e33195a7a7")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 192.8367 34.29 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+				(hide yes)
+			)
+		)
+	)
 	(global_label "SLOT_D4"
 		(shape bidirectional)
 		(at 163.83 157.48 0)
@@ -12826,28 +12859,6 @@
 		(uuid "2a8d1bb7-33c7-4a27-ad0b-20fdca6a361f")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
 			(at 229.2434 193.04 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-				(hide yes)
-			)
-		)
-	)
-	(global_label "SLOT_DATA_DIR"
-		(shape input)
-		(at 208.28 34.29 180)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "2d92eb47-da86-461d-937f-b6de29dba9fb")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 191.2643 34.29 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16375,7 +16386,7 @@
 			(uuid "82c562fe-2b37-462f-9e6d-5f58f7705075")
 		)
 		(instances
-			(project ""
+			(project "Y8960_Cartridge"
 				(path "/0daedcdd-be04-453f-bcf7-9a74be29633a"
 					(reference "D1")
 					(unit 1)
@@ -16685,7 +16696,7 @@
 			(uuid "7c6cf7f0-a302-4aed-abd4-7435a07e1a46")
 		)
 		(instances
-			(project ""
+			(project "Y8960_Cartridge"
 				(path "/0daedcdd-be04-453f-bcf7-9a74be29633a"
 					(reference "U3")
 					(unit 1)
@@ -17221,7 +17232,7 @@
 			(uuid "4e59a21d-2d17-4209-a1d3-8b4e0e8d9345")
 		)
 		(instances
-			(project ""
+			(project "Y8960_Cartridge"
 				(path "/0daedcdd-be04-453f-bcf7-9a74be29633a"
 					(reference "U9")
 					(unit 1)
@@ -17466,7 +17477,7 @@
 			(uuid "eaec502e-b681-4814-a86d-c43dbf6b83a7")
 		)
 		(instances
-			(project ""
+			(project "Y8960_Cartridge"
 				(path "/0daedcdd-be04-453f-bcf7-9a74be29633a"
 					(reference "R1")
 					(unit 1)
@@ -17991,7 +18002,7 @@
 			(uuid "545284d9-e0f3-4081-8070-f12b4cea0202")
 		)
 		(instances
-			(project ""
+			(project "Y8960_Cartridge"
 				(path "/0daedcdd-be04-453f-bcf7-9a74be29633a"
 					(reference "#PWR01")
 					(unit 1)
@@ -18737,7 +18748,7 @@
 			(uuid "fef4be86-0b40-4eb4-bf5a-5b7df3aa6fae")
 		)
 		(instances
-			(project ""
+			(project "Y8960_Cartridge"
 				(path "/0daedcdd-be04-453f-bcf7-9a74be29633a"
 					(reference "#PWR05")
 					(unit 1)
@@ -19308,7 +19319,7 @@
 			(uuid "480d1419-aa7c-4d88-a83e-fc3d0da1568c")
 		)
 		(instances
-			(project ""
+			(project "Y8960_Cartridge"
 				(path "/0daedcdd-be04-453f-bcf7-9a74be29633a"
 					(reference "C1")
 					(unit 1)
@@ -20102,7 +20113,7 @@
 			(uuid "3f0149e5-f16a-4ce8-9b17-213865ff5553")
 		)
 		(instances
-			(project ""
+			(project "Y8960_Cartridge"
 				(path "/0daedcdd-be04-453f-bcf7-9a74be29633a"
 					(reference "#FLG02")
 					(unit 1)
@@ -21587,7 +21598,7 @@
 			(uuid "4b078712-2f9f-41ce-8fff-cd02d03f9608")
 		)
 		(instances
-			(project ""
+			(project "Y8960_Cartridge"
 				(path "/0daedcdd-be04-453f-bcf7-9a74be29633a"
 					(reference "#FLG01")
 					(unit 1)
@@ -22096,7 +22107,7 @@
 			(uuid "d7fd4382-cba1-463c-be23-7f4d175fad98")
 		)
 		(instances
-			(project ""
+			(project "Y8960_Cartridge"
 				(path "/0daedcdd-be04-453f-bcf7-9a74be29633a"
 					(reference "U2")
 					(unit 1)
@@ -23280,7 +23291,7 @@
 			(uuid "2633d909-c10a-480b-a95e-8af288583367")
 		)
 		(instances
-			(project ""
+			(project "Y8960_Cartridge"
 				(path "/0daedcdd-be04-453f-bcf7-9a74be29633a"
 					(reference "U1")
 					(unit 1)
@@ -23452,7 +23463,7 @@
 			(uuid "ccab669b-1e60-4ac4-9f3e-b46d7899218a")
 		)
 		(instances
-			(project ""
+			(project "Y8960_Cartridge"
 				(path "/0daedcdd-be04-453f-bcf7-9a74be29633a"
 					(reference "J2")
 					(unit 1)
@@ -23934,7 +23945,7 @@
 			(uuid "e2405f00-78f8-4f2e-af92-4a72358f4eba")
 		)
 		(instances
-			(project ""
+			(project "Y8960_Cartridge"
 				(path "/0daedcdd-be04-453f-bcf7-9a74be29633a"
 					(reference "J1")
 					(unit 1)
@@ -24174,7 +24185,7 @@
 			(uuid "2cfc3c7d-00cf-4d3d-b95c-451455c2e3e6")
 		)
 		(instances
-			(project ""
+			(project "Y8960_Cartridge"
 				(path "/0daedcdd-be04-453f-bcf7-9a74be29633a"
 					(reference "U4")
 					(unit 1)
@@ -24671,7 +24682,7 @@
 			(uuid "1c271a69-2c03-435f-8cbd-2e64d275a177")
 		)
 		(instances
-			(project ""
+			(project "Y8960_Cartridge"
 				(path "/0daedcdd-be04-453f-bcf7-9a74be29633a"
 					(reference "U8")
 					(unit 1)
@@ -25206,7 +25217,7 @@
 			(uuid "c431f23e-41c6-4582-b3c9-20af6836f4ff")
 		)
 		(instances
-			(project ""
+			(project "Y8960_Cartridge"
 				(path "/0daedcdd-be04-453f-bcf7-9a74be29633a"
 					(reference "#PWR02")
 					(unit 1)
