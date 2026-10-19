@@ -1012,3 +1012,66 @@
   1. OFF で起動し、DOS で ON にしてから `Y8960UPD /B MSXSSE.ROM` を実行する（取り込み修正済み RTL で）。
   2. 成功したら、ON のまま電源を入れ直す。起動すれば仮説は確定。
   3. それでも暗転する場合は、ブートコピー中の WAIT（約 26ms）など RTL 側を調べる。
+
+### 結果（2026-10-18 夜、ユーザー確認）
+- 上記の手順 1～2 で BIOS を書き込み、Verify を含めて成功した。
+- ON のまま電源を入れ直しても正常に起動した。仮説（不完全な BIOS が原因）が確認できた。
+- 書き込んだ BIOS の `CALL MUSIC:PLAY#2,"V15CDEFG"` で音が出た。
+- GitHub に commit/push 済み。
+- 未確認: Y8960UPD による FPGA デザインデータの書き込み。
+
+## 2026-10-19 朝: SCC のステレオ化（9900h～9904h: Ch.A～E PAN）
+- 仕様: Y8960_Specifications.xlsx の MemoryMappedIO シート。9900h～9904h は WO。1=左端、128=中央、255=右端、デフォルト 128。
+- 原本 src/ikascc は変更しない。変更が必要なファイルは src/ikascc_patch にコピーして修正した。
+  - IKASCC.v: `o_SOUND_CH[39:0]`（Ch.A～E の 8bit signed）と `o_SCCREG_EN` を追加した。
+  - IKASCC_player_s.v: 各チャンネルの音（`ch1_sound`～`ch5_sound`）を `o_SOUND_CH` として出力するようにした。
+  - gprj と、test001 系の run.bat の参照先を patch 版に変更した。
+- scc.v:
+  - PAN レジスタ ff_pan_a～ff_pan_e を追加した。書き込み条件は、SCC レジスタウィンドウ（バンク 2 が 3Fh）かつ RAM Mode=0（scc_ma[18]=0）。仕様の「RAM Mode=0 の時のみ利用可能」に合わせた。
+  - IKASCC は A7～A0 しかデコードしないため、9900h～9904h の書き込みは CS をマスクして IKASCC に渡さない（RAM Mode に関係なく。RAM Mode=1 で PAN が無効でも波形を壊さない）。
+    → 9800h～9804h（Ch.A 波形）へのミラー書き込みは起きない。9905h～ と読み出しは従来のミラー動作のまま。
+  - パン処理: 10 ステップ（Ch.A～E × L/R）の時分割で、pan_lut 1 個と乗算器 1 個で処理する。等パワー則で、中央は各 181/256（-3dB）。SSG/OPLL/OPL2 と同じ。
+  - 出力は sound_l_out / sound_r_out（11bit signed）。全チャンネルを片側に振り切ったときの最大振幅は従来のモノラル出力と同じ（±640）。
+- mixier.v: SCC 入力を scc_l / scc_r に分けた。
+- 既知の仕様差（従来から、今回は未変更）: IKASCC_vrc_s の SCCREG_EN は RAM モードを見ていない。そのため RAM モードでもバンク 2=3Fh なら 9800h～98FFh の SCC レジスタにアクセスできる。仕様では「RAM Mode=0 の時のみ」。PAN（9900h～9904h）は今回、RAM Mode=0 の条件を付けた。
+- 検証:
+  - 新規 src/ikascc_patch/test002: PAN の初期値、ウィンドウ外への書き込みの無視、波形 RAM の非破壊、9905h のミラー、L/R の演算値、実 IKASCC 出力の左右切り替え、RAM Mode=1 での PAN 書き込み無視（9800h も非破壊）と RAM Mode=0 復帰後の書き込み。すべて OK。RAM Mode 条件を外すと 3 件 FAIL することも確認した。
+  - mixer/test001（L/R 別値を追加）、ikascc_patch/test001、トップの test001 もすべて OK。
+  - Gowin ビルド（RAM Mode 条件追加後、06:22）: 全クロック Setup/Hold TNS 0。clk_42m の Fmax は 43.057MHz（制約 42.951MHz、余裕は小さい。最悪パスは既存の OPL2 の EG）。DSP 16/28、Logic 32%。
+- 次: 実機で SCC の各チャンネルの PAN を確認する。FPGA の更新が必要。
+
+## 2026-10-19 朝: ADPCM の PAN（OPL2+ADPCM FFh）とマスターボリューム（7FFEh）
+- 仕様: Y8960_Specifications.xlsx
+  - OPL2+ADPCM のレジスタ FFh = ADPCM PAN。1=左端、128=中央、255=右端、デフォルト 128。
+  - MemoryMappedIO の 7FFEh = Master Volume。0=無音～128=最大、bit7=1 なら 128 扱い。有効条件は他の音量レジスタ（7FF7h～7FFAh）と同じ。
+- ADPCM PAN（src/adpcm_patch/adpcm.v）:
+  - FFh の reg_pan と pan_lut による L/R ゲインは 10/17 に実装済みだったが、L/R で乗算器を 2 個使っていた。今回、1 個の乗算器を L/R でクロックごとに交互に使い、結果をレジスタに保持する形に変えた。
+  - jt10_adpcm_drvB の pcm55_l と pcm55_r は同じ値なので（alr_b=11 で両方とも同じ pcmgain）、モノラルの ADPCM 出力に L/R ゲインをかけて定位を作っている。中央は各 181/256（-3dB）で、SSG/OPLL/OPL2/SCC と同じ等パワー則。
+- マスターボリューム:
+  - msx_slot.v: 7FFEh に ff_master_volume（初期値 128）を追加し、master_volume ポートで出力する。7FFBh～7FFDh は Reserved のまま（ローカルバスへ転送）。
+  - mixier.v: ステートを 8 から 10 に増やした（0-3: Lch の各音源×音量、4: Lch ミックス×マスター、5-8: Rch、9: Rch×マスター）。乗算器は 1 個のまま共有する。
+    各音源をミックスして 24bit に飽和させた値に、マスターゲイン（/128）をかける。ゲインは最大 1.0 なので、再飽和は不要。
+  - トップで msx_slot と mixier を接続した。
+- 検証:
+  - 新規 src/adpcm_patch/test001: PAN の初期値 128、PAN=128/1/255/0 の L/R 値、フルスケール（+32767/-32768）。すべて OK。
+  - mixer/test001: マスター 64/1/255（bit7 クランプ）/0、フルスケール時の 100%/75%。すべて OK。
+  - msx_slot/test001: 7FFEh の初期値と書き込み、7FFBh～7FFDh で値が変わらないこと、無効時の非書き込み、ローカルバスへ転送しないこと。すべて OK。msx_slot/test002 も OK。
+  - opl2_patch/test001、ikascc_patch/test001・test002、トップの test001: すべて OK。
+  - Gowin ビルド（06:36）: 全クロック Setup/Hold TNS 0。DSP 15/28（ADPCM の乗算器共有で 16→15）、Logic 33%。
+    clk_42m の Fmax は 42.960MHz（制約 42.951MHz）。余裕はほぼない。最悪パスは既存 SCC の半周期パス（msx_slot アドレス → IKASCC 波形 RAM、立ち上がり→立ち下がり、slack +0.003ns）で、今回の変更箇所ではない。
+- 次: 実機で ADPCM の PAN とマスターボリュームを確認する。FPGA の更新が必要。
+
+## 2026-10-19 朝: `Y8960UPD /C Y8960CFG.BIN` が valid image ではないとして拒否された件（調査中）
+- 実機の症状: `/C Y8960CFG.BIN` を実行すると `This file is not a valid image for this option.` と表示される。
+- PC 側の tool/config/Y8960CFG.BIN（6:58 生成）を確認した結果:
+  - サイズは 848,780 バイト（ヘッダー 48 バイト＋本体 848,732 バイト）。上限 7D0000h 未満。
+  - 先頭 32 バイト（`Y8960_TP25K_CARTRIDGE`＋00h 埋め）は、Y8960UPD.COM 内の config_signature と完全に一致した。
+  - バージョン文字列は `Y8960_v0.9.1`（00h 埋め）。
+  - BIOS のときのようなスペース埋めの問題はない。
+- このメッセージが出るのは、先頭 48 バイトを読めなかった場合か、識別子が一致しなかった場合のみ。
+  このエラーで終了したときは、Flash の消去・書き込みは始まっていない。
+- 仮説: MSX 側に転送されたファイルが PC 側のものと異なる（古いファイル、転送の失敗、サイズの違いなど）か、DOS での読み出しに問題がある。まだ断定できない。
+- 帰宅後の確認:
+  1. 最新の Y8960CFG.BIN を MSX 側へコピーし直し、DOS の DIR でサイズが 848,780 バイトになっていることを確認する。
+  2. `Y8960UPD /C Y8960CFG.BIN` を再実行する。
+  3. それでも拒否される場合は、MSX 側のファイルの先頭 48 バイトを確認する。Y8960UPD のファイル読み出し（FCB／_RDBLK）も調べる。

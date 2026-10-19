@@ -9,11 +9,13 @@ module tb ();
 	reg signed	[15:0]	opll_r;
 	reg signed	[15:0]	opl2_l;
 	reg signed	[15:0]	opl2_r;
-	reg signed	[10:0]	scc;
+	reg signed	[10:0]	scc_l;
+	reg signed	[10:0]	scc_r;
 	reg		[7:0]		ssg_volume;
 	reg		[7:0]		opll_volume;
 	reg		[7:0]		opl2_volume;
 	reg		[7:0]		scc_volume;
+	reg		[7:0]		master_volume;
 	wire signed	[23:0]	audio_l_out;
 	wire signed	[23:0]	audio_r_out;
 	integer				error_count;
@@ -27,11 +29,13 @@ module tb ();
 		.opll_r			( opll_r		),
 		.opl2_l			( opl2_l		),
 		.opl2_r			( opl2_r		),
-		.scc			( scc			),
+		.scc_l			( scc_l			),
+		.scc_r			( scc_r			),
 		.ssg_volume		( ssg_volume	),
 		.opll_volume	( opll_volume	),
 		.opl2_volume	( opl2_volume	),
 		.scc_volume		( scc_volume	),
+		.master_volume	( master_volume	),
 		.audio_l_out	( audio_l_out	),
 		.audio_r_out	( audio_r_out	)
 	);
@@ -43,7 +47,7 @@ module tb ();
 		input signed [23:0] expected_l,
 		input signed [23:0] expected_r
 	);
-		repeat( 18 ) @( posedge clk );
+		repeat( 30 ) @( posedge clk );
 		#1;
 		if( audio_l_out == expected_l && audio_r_out == expected_r ) begin
 			$display( "OK   : %s L=%0d R=%0d", name, audio_l_out, audio_r_out );
@@ -64,11 +68,13 @@ module tb ();
 		opll_r			= 16'sd0;
 		opl2_l			= 16'sd0;
 		opl2_r			= 16'sd0;
-		scc				= 11'sd0;
+		scc_l			= 11'sd0;
+		scc_r			= 11'sd0;
 		ssg_volume		= 8'd128;
 		opll_volume		= 8'd128;
 		opl2_volume		= 8'd128;
 		scc_volume		= 8'd128;
+		master_volume	= 8'd128;
 		error_count		= 0;
 
 		repeat( 3 ) @( posedge clk );
@@ -84,7 +90,8 @@ module tb ();
 		opll_r	= 16'sd300;
 		opl2_l	= 16'sd400;
 		opl2_r	= -16'sd500;
-		scc		= -11'sd50;
+		scc_l	= -11'sd50;
+		scc_r	= -11'sd50;
 		check_output( "all sources at 100%", 24'sd16000, 24'sd25600 );
 
 		ssg_l	= 13'd1024;
@@ -93,18 +100,57 @@ module tb ();
 		opll_r	= 16'sd1024;
 		opl2_l	= 16'sd1024;
 		opl2_r	= 16'sd1024;
-		scc		= 11'sd256;
+		scc_l	= 11'sd256;
+		scc_r	= -11'sd256;
 		ssg_volume		= 8'd64;
 		opll_volume		= 8'd32;
 		opl2_volume		= 8'd0;
 		scc_volume		= 8'd127;
-		check_output( "independent gains", 24'sd28544, 24'sd28544 );
+		check_output( "independent gains and SCC L/R", 24'sd28544, -24'sd3968 );
 
 		ssg_volume		= 8'd0;
 		opll_volume		= 8'd0;
 		opl2_volume		= 8'd0;
 		scc_volume		= 8'd0;
 		check_output( "all sources muted", 24'sd0, 24'sd0 );
+
+		ssg_volume		= 8'd128;
+		opll_volume		= 8'd128;
+		opl2_volume		= 8'd128;
+		scc_volume		= 8'd128;
+		ssg_l	= 13'd1000;
+		ssg_r	= 13'd2000;
+		opll_l	= -16'sd200;
+		opll_r	= 16'sd300;
+		opl2_l	= 16'sd400;
+		opl2_r	= -16'sd500;
+		scc_l	= -11'sd50;
+		scc_r	= -11'sd50;
+		master_volume	= 8'd64;
+		check_output( "master volume 50%", 24'sd8000, 24'sd12800 );
+
+		master_volume	= 8'd1;
+		check_output( "master volume 1/128", 24'sd125, 24'sd200 );
+
+		master_volume	= 8'd255;
+		check_output( "master volume bit7 clamps to 100%", 24'sd16000, 24'sd25600 );
+
+		master_volume	= 8'd0;
+		check_output( "master volume muted", 24'sd0, 24'sd0 );
+
+		ssg_l	= 13'd8191;
+		ssg_r	= 13'd8191;
+		opll_l	= 16'sd32767;
+		opll_r	= -16'sd32768;
+		opl2_l	= 16'sd32767;
+		opl2_r	= -16'sd32768;
+		scc_l	= 11'sd1023;
+		scc_r	= -11'sd1024;
+		master_volume	= 8'd128;
+		check_output( "full scale at master 100%", 24'sd1245072, -24'sd983056 );
+
+		master_volume	= 8'd96;
+		check_output( "full scale at master 75%", 24'sd933804, -24'sd737292 );
 
 		if( error_count == 0 ) begin
 			$display( "OK   : all tests passed" );

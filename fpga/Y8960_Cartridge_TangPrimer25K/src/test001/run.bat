@@ -14,8 +14,8 @@ vlog ..\ikaopll_patch\IKAOPLL_modules\IKAOPLL_dac.v
 vlog ..\ikaopll_patch\IKAOPLL_reg.v
 vlog ..\ikaopll_patch\opll.v
 
-vlog ..\ikascc\src\IKASCC.v
-vlog ..\ikascc\src\IKASCC_modules\IKASCC_player_s.v
+vlog ..\ikascc_patch\IKASCC.v
+vlog ..\ikascc_patch\IKASCC_player_s.v
 vlog ..\ikascc\src\IKASCC_modules\IKASCC_primitives.v
 vlog ..\ikascc_patch\IKASCC_vrc_s.v
 vlog ..\ikascc_patch\scc.v

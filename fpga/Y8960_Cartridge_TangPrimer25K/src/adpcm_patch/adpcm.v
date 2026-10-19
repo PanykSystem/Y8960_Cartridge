@@ -65,8 +65,11 @@ module adpcm (
 	wire	[15:0]	w_pcm;
 	wire	[8:0]	w_pan_gain_l;
 	wire	[8:0]	w_pan_gain_r;
-	wire signed [25:0]	w_pan_product_l;
-	wire signed [25:0]	w_pan_product_r;
+	wire	[8:0]	w_pan_gain;
+	wire signed [25:0]	w_pan_product;
+	reg				ff_pan_phase;				// 0: Lch, 1: Rch
+	reg		[15:0]	ff_pan_out_l;
+	reg		[15:0]	ff_pan_out_r;
 
 	// ---------------------------------------------------------
 	//	JT ADPCM (TypeB) body
@@ -106,10 +109,29 @@ module adpcm (
 		.o_gain_r		( w_pan_gain_r						)
 	);
 
-	assign w_pan_product_l		= $signed( w_pcm ) * $signed( { 1'b0, w_pan_gain_l } );
-	assign w_pan_product_r		= $signed( w_pcm ) * $signed( { 1'b0, w_pan_gain_r } );
-	assign adpcm_sound_out_l	= w_pan_product_l[23:8];
-	assign adpcm_sound_out_r	= w_pan_product_r[23:8];
+	//	One multiplier is shared by Lch and Rch alternately.
+	assign w_pan_gain			= ff_pan_phase ? w_pan_gain_r : w_pan_gain_l;
+	assign w_pan_product		= $signed( w_pcm ) * $signed( { 1'b0, w_pan_gain } );
+
+	always @( posedge clk ) begin
+		if( !reset_n ) begin
+			ff_pan_phase	<= 1'b0;
+			ff_pan_out_l	<= 16'd0;
+			ff_pan_out_r	<= 16'd0;
+		end
+		else begin
+			ff_pan_phase	<= ~ff_pan_phase;
+			if( ff_pan_phase ) begin
+				ff_pan_out_r	<= w_pan_product[23:8];
+			end
+			else begin
+				ff_pan_out_l	<= w_pan_product[23:8];
+			end
+		end
+	end
+
+	assign adpcm_sound_out_l	= ff_pan_out_l;
+	assign adpcm_sound_out_r	= ff_pan_out_r;
 
 	always @( posedge clk ) begin
 		if( !reset_n ) begin

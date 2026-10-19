@@ -132,6 +132,7 @@ module y8960cartridge_tangprimer25k (
 	wire	[7:0]	w_opll_volume;
 	wire	[7:0]	w_opl2_volume;
 	wire	[7:0]	w_scc_volume;
+	wire	[7:0]	w_master_volume;
 
 	wire	[7:0]	w_bus_scc_bank_rdata;
 	wire			w_bus_scc_bank_rdata_en;
@@ -152,7 +153,8 @@ module y8960cartridge_tangprimer25k (
 	wire	[12:0]	w_ssg_sound_l_out;
 	wire	[12:0]	w_ssg_sound_r_out;
 
-	wire	[10:0]	w_scc_sound_out;
+	wire	[10:0]	w_scc_sound_l_out;
+	wire	[10:0]	w_scc_sound_r_out;
 
 	reg		[3:0]	ff_divider;
 	reg				ff_enable;
@@ -320,7 +322,8 @@ module y8960cartridge_tangprimer25k (
 		.ssg_volume				( w_ssg_volume				),
 		.opll_volume			( w_opll_volume				),
 		.opl2_volume			( w_opl2_volume				),
-		.scc_volume				( w_scc_volume				)
+		.scc_volume				( w_scc_volume				),
+		.master_volume			( w_master_volume			)
 	);
 
 	//	In RAM mode, BANK1 #0-#15 remains ROM and keeps the memory mapped I/O visible.
@@ -475,7 +478,8 @@ module y8960cartridge_tangprimer25k (
 		.bus_rdata_en			( w_bus_scc_rdata_en		),
 		.scc_memory_cs			( w_scc_memory_cs			),
 		.scc_ma					( w_scc_ma					),
-		.sound_out				( w_scc_sound_out			)
+		.sound_l_out			( w_scc_sound_l_out			),
+		.sound_r_out			( w_scc_sound_r_out			)
 	);
 
 	// ---------------------------------------------------------
@@ -629,11 +633,13 @@ module y8960cartridge_tangprimer25k (
 		.opll_r				( w_opll_sound_r_out		),
 		.opl2_l				( w_opl2_sound_out_l		),
 		.opl2_r				( w_opl2_sound_out_r		),
-		.scc				( w_scc_sound_out			),
+		.scc_l				( w_scc_sound_l_out			),
+		.scc_r				( w_scc_sound_r_out			),
 		.ssg_volume			( w_ssg_volume				),
 		.opll_volume		( w_opll_volume				),
 		.opl2_volume		( w_opl2_volume				),
 		.scc_volume			( w_scc_volume				),
+		.master_volume		( w_master_volume			),
 		.audio_l_out		( w_audio_l					),
 		.audio_r_out		( w_audio_r					)
 	);

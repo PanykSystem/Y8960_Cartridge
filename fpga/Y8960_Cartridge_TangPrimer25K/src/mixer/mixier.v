@@ -64,42 +64,55 @@ module mixier (
 	input signed	[15:0]		opll_r,
 	input signed	[15:0]		opl2_l,
 	input signed	[15:0]		opl2_r,
-	input signed	[10:0]		scc,
+	input signed	[10:0]		scc_l,
+	input signed	[10:0]		scc_r,
 	input			[7:0]		ssg_volume,
 	input			[7:0]		opll_volume,
 	input			[7:0]		opl2_volume,
 	input			[7:0]		scc_volume,
+	input			[7:0]		master_volume,
 	output reg signed [23:0]	audio_l_out,
 	output reg signed [23:0]	audio_r_out
 );
-	reg			[2:0]	ff_state;
+	//	One multiplier is shared by 10 steps:
+	//	  0-3: SSG/OPLL/OPL2/SCC Lch x volume, 4: Lch mix x master volume
+	//	  5-8: SSG/OPLL/OPL2/SCC Rch x volume, 9: Rch mix x master volume
+	reg			[3:0]	ff_state;
 	reg signed	[27:0]	ff_acc;
-	reg signed	[15:0]	w_sample;
+	reg signed	[23:0]	ff_mix;
+	reg signed	[23:0]	w_sample;
 	reg			[7:0]	w_volume;
 	wire		[7:0]	w_gain;
-	wire signed	[24:0]	w_product_raw;
+	wire signed	[32:0]	w_product_raw;
 	wire signed	[27:0]	w_product;
 	wire signed	[27:0]	w_sum;
 	wire signed	[27:0]	w_scaled;
+	wire signed	[23:0]	w_master_out;
+	wire				w_master_state;
 
 	assign w_gain			= w_volume[7] ? 8'd128 : { 1'b0, w_volume[6:0] };
 	assign w_product_raw	= w_sample * $signed({ 1'b0, w_gain });
-	assign w_product		= { {3{w_product_raw[24]}}, w_product_raw };
+	assign w_product		= w_product_raw[27:0];
 	assign w_sum			= ff_acc + w_product;
 	assign w_scaled			= w_sum >>> 3;
+	//	|ff_mix| <= 2^23 and gain <= 128, so the result always fits in 24 bits.
+	assign w_master_out		= w_product_raw[30:7];
+	assign w_master_state	= (ff_state == 4'd4) || (ff_state == 4'd9);
 
 	always @(*) begin
-		w_sample	= 16'sd0;
+		w_sample	= 24'sd0;
 		w_volume	= 8'd128;
 		case( ff_state )
-			3'd0: begin w_sample = $signed({ 3'd0, ssg_l });              w_volume = ssg_volume;  end
-			3'd1: begin w_sample = opll_l;                                w_volume = opll_volume; end
-			3'd2: begin w_sample = opl2_l;                                w_volume = opl2_volume; end
-			3'd3: begin w_sample = $signed({ {3{scc[10]}}, scc, 2'd0 });  w_volume = scc_volume;  end
-			3'd4: begin w_sample = $signed({ 3'd0, ssg_r });              w_volume = ssg_volume;  end
-			3'd5: begin w_sample = opll_r;                                w_volume = opll_volume; end
-			3'd6: begin w_sample = opl2_r;                                w_volume = opl2_volume; end
-			3'd7: begin w_sample = $signed({ {3{scc[10]}}, scc, 2'd0 });  w_volume = scc_volume;  end
+			4'd0: begin w_sample = $signed({ 11'd0, ssg_l });					w_volume = ssg_volume;		end
+			4'd1: begin w_sample = { {8{opll_l[15]}}, opll_l };				w_volume = opll_volume;		end
+			4'd2: begin w_sample = { {8{opl2_l[15]}}, opl2_l };				w_volume = opl2_volume;		end
+			4'd3: begin w_sample = { {11{scc_l[10]}}, scc_l, 2'd0 };			w_volume = scc_volume;		end
+			4'd4: begin w_sample = ff_mix;										w_volume = master_volume;	end
+			4'd5: begin w_sample = $signed({ 11'd0, ssg_r });					w_volume = ssg_volume;		end
+			4'd6: begin w_sample = { {8{opll_r[15]}}, opll_r };				w_volume = opll_volume;		end
+			4'd7: begin w_sample = { {8{opl2_r[15]}}, opl2_r };				w_volume = opl2_volume;		end
+			4'd8: begin w_sample = { {11{scc_r[10]}}, scc_r, 2'd0 };			w_volume = scc_volume;		end
+			4'd9: begin w_sample = ff_mix;										w_volume = master_volume;	end
 			default: ;
 		endcase
 	end
@@ -121,31 +134,36 @@ module mixier (
 
 	always @( posedge clk ) begin
 		if( !reset_n ) begin
-			ff_state		<= 3'd0;
+			ff_state		<= 4'd0;
 			ff_acc			<= 28'sd0;
-			audio_l_out	<= 24'sd0;
-			audio_r_out	<= 24'sd0;
+			ff_mix			<= 24'sd0;
+			audio_l_out		<= 24'sd0;
+			audio_r_out		<= 24'sd0;
 		end
 		else begin
-			if( ff_state == 3'd0 || ff_state == 3'd4 ) begin
+			if( ff_state == 4'd0 || ff_state == 4'd5 ) begin
 				ff_acc <= w_product;
 			end
-			else begin
+			else if( !w_master_state ) begin
 				ff_acc <= w_sum;
 			end
 
-			if( ff_state == 3'd3 ) begin
-				audio_l_out <= saturate_24( w_scaled );
-			end
-			else if( ff_state == 3'd7 ) begin
-				audio_r_out <= saturate_24( w_scaled );
+			if( ff_state == 4'd3 || ff_state == 4'd8 ) begin
+				ff_mix <= saturate_24( w_scaled );
 			end
 
-			if( ff_state == 3'd7 ) begin
-				ff_state <= 3'd0;
+			if( ff_state == 4'd4 ) begin
+				audio_l_out <= w_master_out;
+			end
+			else if( ff_state == 4'd9 ) begin
+				audio_r_out <= w_master_out;
+			end
+
+			if( ff_state == 4'd9 ) begin
+				ff_state <= 4'd0;
 			end
 			else begin
-				ff_state <= ff_state + 3'd1;
+				ff_state <= ff_state + 4'd1;
 			end
 		end
 	end

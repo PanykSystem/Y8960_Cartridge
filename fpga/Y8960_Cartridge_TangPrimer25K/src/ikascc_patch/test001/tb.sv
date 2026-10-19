@@ -114,7 +114,8 @@ module tb ();
 		.ssg_volume				(							),
 		.opll_volume			(							),
 		.opl2_volume			(							),
-		.scc_volume				(							)
+		.scc_volume				(							),
+		.master_volume			(							)
 	);
 
 	assign w_mixer_reg_en = ~w_scc_ma[5] | ~w_scc_ma[4];
@@ -161,7 +162,8 @@ module tb ();
 		.bus_rdata_en			( w_bus_scc_rdata_en		),
 		.scc_memory_cs			( w_scc_memory_cs			),
 		.scc_ma					( w_scc_ma					),
-		.sound_out				(							)
+		.sound_l_out			(							),
+		.sound_r_out			(							)
 	);
 
 	scc_bank u_scc_bank (

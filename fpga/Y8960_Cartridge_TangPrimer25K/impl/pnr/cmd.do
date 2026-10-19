@@ -14,6 +14,6 @@
 -route_option 0
 -clock_route_order 0
 -correct_hold 1
--route_maxfan 23
+-route_maxfan 100
 -global_freq 28.636
 -enable_dsrm 0

@@ -26,8 +26,8 @@
         <File path="src/ikaopll_patch/IKAOPLL_modules/IKAOPLL_dac.v" type="file.verilog" enable="1"/>
         <File path="src/ikaopll_patch/IKAOPLL_reg.v" type="file.verilog" enable="1"/>
         <File path="src/ikaopll_patch/opll.v" type="file.verilog" enable="1"/>
-        <File path="src/ikascc/src/IKASCC.v" type="file.verilog" enable="1"/>
-        <File path="src/ikascc/src/IKASCC_modules/IKASCC_player_s.v" type="file.verilog" enable="1"/>
+        <File path="src/ikascc_patch/IKASCC.v" type="file.verilog" enable="1"/>
+        <File path="src/ikascc_patch/IKASCC_player_s.v" type="file.verilog" enable="1"/>
         <File path="src/ikascc/src/IKASCC_modules/IKASCC_primitives.v" type="file.verilog" enable="1"/>
         <File path="src/ikascc_patch/IKASCC_vrc_s.v" type="file.verilog" enable="1"/>
         <File path="src/ikascc_patch/scc.v" type="file.verilog" enable="1"/>

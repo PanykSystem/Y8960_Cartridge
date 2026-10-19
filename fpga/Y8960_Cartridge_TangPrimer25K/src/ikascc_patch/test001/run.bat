@@ -3,8 +3,9 @@ if exist work (
 )
 vlib work
 
-vlog ..\..\ikascc\src\IKASCC.v
-vlog ..\..\ikascc\src\IKASCC_modules\IKASCC_player_s.v
+vlog ..\IKASCC.v
+vlog ..\IKASCC_player_s.v
+vlog ..\..\pan\pan_lut.v
 vlog ..\..\ikascc\src\IKASCC_modules\IKASCC_primitives.v
 vlog ..\IKASCC_vrc_s.v
 vlog ..\scc.v

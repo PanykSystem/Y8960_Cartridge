@@ -128,6 +128,7 @@ module tb ();
 	wire	[7:0]	opll_volume;
 	wire	[7:0]	opl2_volume;
 	wire	[7:0]	scc_volume;
+	wire	[7:0]	master_volume;
 	wire	[3:0]	led;
 	string			s_state;
 	integer			error_count;
@@ -162,7 +163,8 @@ module tb ();
 		.ssg_volume				( ssg_volume				),
 		.opll_volume			( opll_volume				),
 		.opl2_volume			( opl2_volume				),
-		.scc_volume				( scc_volume				)
+		.scc_volume				( scc_volume				),
+		.master_volume			( master_volume				)
 	);
 
 	y8960_address_decode u_y8960_address_decode (
