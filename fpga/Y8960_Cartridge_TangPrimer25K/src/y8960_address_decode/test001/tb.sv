@@ -65,6 +65,7 @@ module tb ();
 	localparam	[7:0]	c_opl2_old_io	= 8'hC2;	//	removed 2nd MSX-AUDIO port (must be unmapped now)
 	localparam	[7:0]	c_timer1_io		= 8'hB0;
 	localparam	[7:0]	c_timer2_io		= 8'hB2;
+	localparam	[7:0]	c_opm_io		= 8'h7E;
 	localparam	[7:0]	c_sysctrl_io	= 8'h45;
 	localparam	[7:0]	c_unmapped_io	= 8'h00;
 
@@ -76,18 +77,22 @@ module tb ();
 	localparam	[15:0]	c_opll_mio		= 16'h7FF4;
 	localparam	[15:0]	c_io_en1_mio	= 16'h7FF6;
 	localparam	[15:0]	c_io_en1_odd	= 16'h7FF7;		//	mixer volume is handled by msx_slot
+	localparam	[15:0]	c_opm_adr_mio	= 16'h7FFB;
+	localparam	[15:0]	c_opm_dat_mio	= 16'h7FFC;
+	localparam	[15:0]	c_opm_vol_mio	= 16'h7FFD;		//	volume is handled by msx_slot
 	localparam	[15:0]	c_io_en2_mio	= 16'h7FFF;
 	localparam	[15:0]	c_io_en2_even	= 16'h7FFE;		//	volume is handled by msx_slot
 	localparam	[15:0]	c_normal_mem	= 16'h8000;
 
-	//	Chip select bit order: { timer, opll, opl2, ssg, scc, sysctrl }
-	localparam	[5:0]	c_cs_none		= 6'b000000;
-	localparam	[5:0]	c_cs_timer		= 6'b100000;
-	localparam	[5:0]	c_cs_opll		= 6'b010000;
-	localparam	[5:0]	c_cs_opl2		= 6'b001000;
-	localparam	[5:0]	c_cs_ssg		= 6'b000100;
-	localparam	[5:0]	c_cs_scc		= 6'b000010;
-	localparam	[5:0]	c_cs_sysctrl	= 6'b000001;
+	//	Chip select bit order: { timer, opll, opl2, ssg, scc, opm, sysctrl }
+	localparam	[6:0]	c_cs_none		= 7'b0000000;
+	localparam	[6:0]	c_cs_timer		= 7'b1000000;
+	localparam	[6:0]	c_cs_opll		= 7'b0100000;
+	localparam	[6:0]	c_cs_opl2		= 7'b0010000;
+	localparam	[6:0]	c_cs_ssg		= 7'b0001000;
+	localparam	[6:0]	c_cs_scc		= 7'b0000100;
+	localparam	[6:0]	c_cs_opm		= 7'b0000010;
+	localparam	[6:0]	c_cs_sysctrl	= 7'b0000001;
 
 	reg				clk;
 	reg				reset_n;
@@ -102,6 +107,7 @@ module tb ();
 	wire			bus_opl2_cs;
 	wire			bus_ssg_cs;
 	wire			bus_scc_cs;
+	wire			bus_opm_cs;
 	wire			bus_sysctrl_cs;
 	reg				memory_io_en;
 	wire		[3:0]	led;
@@ -124,12 +130,14 @@ module tb ();
 		.bus_opl2_cs			( bus_opl2_cs			),
 		.bus_ssg_cs				( bus_ssg_cs			),
 		.bus_scc_cs				( bus_scc_cs			),
+		.bus_opm_cs				( bus_opm_cs			),
 		.bus_sysctrl_cs			( bus_sysctrl_cs		),
 		.bus_timer_ready		( 1'b1					),
 		.bus_opll_ready			( 1'b1					),
 		.bus_opl2_ready			( 1'b1					),
 		.bus_ssg_ready			( 1'b1					),
 		.bus_scc_ready			( 1'b1					),
+		.bus_opm_ready			( 1'b1					),
 		.bus_sysctrl_ready		( 1'b1					),
 		.memory_io_en			( memory_io_en			),
 		.led					( led					)
@@ -189,11 +197,11 @@ module tb ();
 		input	[15:0]	address,
 		input			io,
 		input			write,
-		input	[5:0]	expected_cs
+		input	[6:0]	expected_cs
 	);
-		reg	[5:0]	actual_cs;
+		reg	[6:0]	actual_cs;
 		access( address, io, write, 8'h00 );
-		actual_cs = { bus_timer_cs, bus_opll_cs, bus_opl2_cs, bus_ssg_cs, bus_scc_cs, bus_sysctrl_cs };
+		actual_cs = { bus_timer_cs, bus_opll_cs, bus_opl2_cs, bus_ssg_cs, bus_scc_cs, bus_opm_cs, bus_sysctrl_cs };
 		check( $sformatf( "%s (address=%04h expected_cs=%07b actual_cs=%07b)", name, address, expected_cs, actual_cs ),
 			actual_cs == expected_cs );
 		if( expected_cs == c_cs_none ) begin
@@ -213,11 +221,11 @@ module tb ();
 		input	[15:0]	address,
 		input			io,
 		input			write,
-		input	[5:0]	expected_cs
+		input	[6:0]	expected_cs
 	);
-		reg	[5:0]	actual_cs;
+		reg	[6:0]	actual_cs;
 		access( address, io, write, 8'h00 );
-		actual_cs = { bus_timer_cs, bus_opll_cs, bus_opl2_cs, bus_ssg_cs, bus_scc_cs, bus_sysctrl_cs };
+		actual_cs = { bus_timer_cs, bus_opll_cs, bus_opl2_cs, bus_ssg_cs, bus_scc_cs, bus_opm_cs, bus_sysctrl_cs };
 		check( $sformatf( "%s (address=%04h expected_cs=%07b actual_cs=%07b)", name, address, expected_cs, actual_cs ),
 			actual_cs == expected_cs );
 		check( $sformatf( "%s bus_ready == 1", name ), bus_ready == 1'b1 );
@@ -264,6 +272,7 @@ module tb ();
 		check_decode( "opll io (default enabled)", { 8'h00, c_opll_io }, 1'b1, 1'b1, c_cs_opll );
 		check_decode( "opl2 io (disabled)",   { 8'h00, c_opl2_io }, 1'b1, 1'b1, c_cs_none );
 		check_decode( "timer io (disabled)",  { 8'h00, c_timer1_io }, 1'b1, 1'b1, c_cs_none );
+		check_decode( "opm io (disabled)",    { 8'h00, c_opm_io }, 1'b1, 1'b1, c_cs_none );
 		//	sysctrl and undecoded I/O ports do not depend on the enabler
 		check_decode( "sysctrl io",           { 8'h00, c_sysctrl_io },   1'b1, 1'b1, c_cs_sysctrl );
 		check_decode( "unmapped io",          { 8'h00, c_unmapped_io },  1'b1, 1'b1, c_cs_none );
@@ -274,7 +283,7 @@ module tb ();
 		// --------------------------------------------------------------------
 		memory_io_en	= 1'b1;
 		write_io_enabler( c_io_en1_mio, 8'b0000_0001 );	//	opll_io_en
-		write_io_enabler( c_io_en2_mio, 8'b1000_0011 );	//	opl2, ssg, timer
+		write_io_enabler( c_io_en2_mio, 8'b1000_0111 );	//	opl2, ssg, opm, timer
 
 		// --------------------------------------------------------------------
 		//	I/O port decode (now enabled)
@@ -288,6 +297,8 @@ module tb ();
 		check_decode( "opl2 old io", { 8'h00, c_opl2_old_io }, 1'b1, 1'b1, c_cs_none );
 		check_decode( "timer1 io",   { 8'h00, c_timer1_io }, 1'b1, 1'b1, c_cs_timer );
 		check_decode( "timer2 io",   { 8'h00, c_timer2_io }, 1'b1, 1'b0, c_cs_timer );
+		check_decode( "opm io",      { 8'h00, c_opm_io    }, 1'b1, 1'b1, c_cs_opm );
+		check_decode( "opm io odd",  { 8'h00, c_opm_io + 8'd1 }, 1'b1, 1'b0, c_cs_opm );
 		check_decode( "sysctrl io",  { 8'h00, c_sysctrl_io },1'b1, 1'b1, c_cs_sysctrl );
 		check_decode( "unmapped io", { 8'h00, c_unmapped_io},1'b1, 1'b1, c_cs_none );
 
@@ -302,9 +313,10 @@ module tb ();
 		check_cs_only( "io_en1 mio",     c_io_en1_mio,     1'b0, 1'b1, c_cs_none );	//	io_en_cs is not exposed as a module cs
 		check_cs_only( "7FF7h no SCC",   c_io_en1_odd,     1'b0, 1'b1, c_cs_none );
 		check_cs_only( "7FFEh no SCC",   c_io_en2_even,    1'b0, 1'b1, c_cs_none );
-		for( int address = 'h7FFB; address <= 'h7FFD; address++ ) begin
-			check_cs_only( "reserved write ignored", address, 1'b0, 1'b1, c_cs_none );
-		end
+		check_decode( "opm address mio", c_opm_adr_mio,   1'b0, 1'b1, c_cs_opm );
+		check_decode( "opm data mio",    c_opm_dat_mio,    1'b0, 1'b1, c_cs_opm );
+		check_cs_only( "7FFDh no SCC",   c_opm_vol_mio,    1'b0, 1'b1, c_cs_none );
+		check_decode( "opm data mio read->scc", c_opm_dat_mio, 1'b0, 1'b0, c_cs_scc );
 		check_decode( "7FEFh write->scc", 16'h7FEF, 1'b0, 1'b1, c_cs_scc );
 		check_decode( "7FF0h write->ssg",  16'h7FF0, 1'b0, 1'b1, c_cs_ssg );
 		check_cs_only( "io_en2 mio",     c_io_en2_mio,     1'b0, 1'b1, c_cs_none );	//	io_en_cs is not exposed as a module cs
@@ -317,6 +329,12 @@ module tb ();
 		access( c_io_en2_mio, 1'b0, 1'b1, 8'h00 );
 		check( "io_en2 mio bus_ready == 1", bus_ready == 1'b1 );
 		idle();
+
+		//	7FFFh bit2=0 disables only the OPM I/O port; MMIO stays available.
+		write_io_enabler( c_io_en2_mio, 8'b1000_0011 );
+		check_decode( "opm io (disabled again)", { 8'h00, c_opm_io }, 1'b1, 1'b1, c_cs_none );
+		check_decode( "opm data mio (io disabled)", c_opm_dat_mio, 1'b0, 1'b1, c_cs_opm );
+		check_decode( "ssg1 io (still enabled)", { 8'h00, c_ssg1_io }, 1'b1, 1'b1, c_cs_ssg );
 
 		// --------------------------------------------------------------------
 		//	Reads to the mio window and accesses without memory_io_en must fall
@@ -339,7 +357,7 @@ module tb ();
 		// --------------------------------------------------------------------
 		bus_valid	= 1'b0;
 		#1;
-		check( "idle bus (no cs)", { bus_timer_cs, bus_opll_cs, bus_opl2_cs, bus_ssg_cs, bus_scc_cs, bus_sysctrl_cs } == c_cs_none );
+		check( "idle bus (no cs)", { bus_timer_cs, bus_opll_cs, bus_opl2_cs, bus_ssg_cs, bus_scc_cs, bus_opm_cs, bus_sysctrl_cs } == c_cs_none );
 		check( "idle bus (bus_ready==0)", bus_ready == 1'b0 );
 
 		repeat( 10 ) @( posedge clk );

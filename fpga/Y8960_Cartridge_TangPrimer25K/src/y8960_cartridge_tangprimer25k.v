@@ -107,6 +107,7 @@ module y8960cartridge_tangprimer25k (
 	wire			w_bus_opll_cs;
 	wire			w_bus_ssg_cs;
 	wire			w_bus_scc_cs;
+	wire			w_bus_opm_cs;
 
 	wire			w_bus_timer_ready;
 	wire	[7:0]	w_bus_timer_rdata;
@@ -125,6 +126,11 @@ module y8960cartridge_tangprimer25k (
 	wire			w_bus_scc_ready;
 	wire	[7:0]	w_bus_scc_rdata;
 	wire			w_bus_scc_rdata_en;
+	wire			w_bus_opm_ready;
+	wire	[7:0]	w_bus_opm_rdata;
+	wire			w_bus_opm_rdata_en;
+	wire			w_opm_wait_n;
+	wire			w_opm_intr_n;
 	wire			w_scc_memory_cs;
 	wire	[5:0]	w_scc_ma;
 	wire			w_mixer_reg_en;
@@ -132,6 +138,7 @@ module y8960cartridge_tangprimer25k (
 	wire	[7:0]	w_opll_volume;
 	wire	[7:0]	w_opl2_volume;
 	wire	[7:0]	w_scc_volume;
+	wire	[7:0]	w_opm_volume;
 	wire	[7:0]	w_master_volume;
 
 	wire	[7:0]	w_bus_scc_bank_rdata;
@@ -155,6 +162,9 @@ module y8960cartridge_tangprimer25k (
 
 	wire	[10:0]	w_scc_sound_l_out;
 	wire	[10:0]	w_scc_sound_r_out;
+
+	wire	[15:0]	w_opm_sound_l_out;
+	wire	[15:0]	w_opm_sound_r_out;
 
 	reg		[3:0]	ff_divider;
 	reg				ff_enable;
@@ -230,7 +240,7 @@ module y8960cartridge_tangprimer25k (
 	reg				ff_slot_connected = 1'b0;
 
 	//	SLOT_WAIT: 1 or HiZ -> /WAIT=0 (MSX waits), 0 -> /WAIT=HiZ
-	assign slot_wait	= ff_slot_connected & ~(w_wait_n & w_scc_bank_wait_n);
+	assign slot_wait	= ff_slot_connected & ~(w_wait_n & w_scc_bank_wait_n & w_opm_wait_n);
 
 	//	DIPSW[1]: OFF/open = disconnected, ON/GND = connected.
 	//	Debounce for about 1.5ms; connect only between /RD and /WR cycles.
@@ -323,6 +333,7 @@ module y8960cartridge_tangprimer25k (
 		.opll_volume			( w_opll_volume				),
 		.opl2_volume			( w_opl2_volume				),
 		.scc_volume				( w_scc_volume				),
+		.opm_volume				( w_opm_volume				),
 		.master_volume			( w_master_volume			)
 	);
 
@@ -344,20 +355,22 @@ module y8960cartridge_tangprimer25k (
 		.bus_opl2_cs			( w_bus_opl2_cs				),
 		.bus_ssg_cs				( w_bus_ssg_cs				),
 		.bus_scc_cs				( w_bus_scc_cs				),
+		.bus_opm_cs				( w_bus_opm_cs				),
 		.bus_sysctrl_cs			( w_bus_sysctrl_cs			),
 		.bus_timer_ready		( w_bus_timer_ready			),
 		.bus_opll_ready			( w_bus_opll_ready			),
 		.bus_opl2_ready			( w_bus_opl2_ready			),
 		.bus_ssg_ready			( w_bus_ssg_ready			),
 		.bus_scc_ready			( w_bus_scc_ready			),
+		.bus_opm_ready			( w_bus_opm_ready			),
 		.bus_sysctrl_ready		( w_bus_sysctrl_ready		),
 		.memory_io_en			( w_mixer_reg_en			),
 		.led					(							)
 	);
 
-	assign w_bus_rdata		= w_bus_timer_rdata & w_bus_opl2_rdata & w_bus_ssg_rdata & w_bus_scc_rdata & w_bus_sysctrl_rdata & w_bus_scc_bank_rdata;
-	assign w_bus_rdata_en	= w_bus_timer_rdata_en | w_bus_opl2_rdata_en | w_bus_ssg_rdata_en | w_bus_scc_rdata_en | w_bus_sysctrl_rdata_en | w_bus_scc_bank_rdata_en;
-	assign w_int_n			= w_timer_intr_n & w_opl2_intr_n;
+	assign w_bus_rdata		= w_bus_timer_rdata & w_bus_opl2_rdata & w_bus_ssg_rdata & w_bus_scc_rdata & w_bus_sysctrl_rdata & w_bus_scc_bank_rdata & w_bus_opm_rdata;
+	assign w_bus_rdata_en	= w_bus_timer_rdata_en | w_bus_opl2_rdata_en | w_bus_ssg_rdata_en | w_bus_scc_rdata_en | w_bus_sysctrl_rdata_en | w_bus_scc_bank_rdata_en | w_bus_opm_rdata_en;
+	assign w_int_n			= w_timer_intr_n & w_opl2_intr_n & w_opm_intr_n;
 
 	scc_bank u_scc_bank (
 		.clk					( clk_42m					),
@@ -420,6 +433,26 @@ module y8960cartridge_tangprimer25k (
 		.adpcm_wdata			( w_adpcm_wdata				),
 		.adpcm_rdata			( w_adpcm_rdata				),
 		.adpcm_rdata_en			( w_adpcm_rdata_en			)
+	);
+
+	// ---------------------------------------------------------
+	opm u_opm (
+		.clk					( clk_42m					),
+		.reset_n				( w_reset_n					),
+		.enable					( ff_enable					),
+		.bus_cs					( w_bus_opm_cs				),
+		.bus_io					( w_bus_io					),
+		.bus_address			( w_bus_address[0]			),
+		.bus_write				( w_bus_write				),
+		.bus_valid				( w_bus_valid				),
+		.bus_ready				( w_bus_opm_ready			),
+		.bus_wdata				( w_bus_wdata				),
+		.bus_rdata				( w_bus_opm_rdata			),
+		.bus_rdata_en			( w_bus_opm_rdata_en		),
+		.wait_n					( w_opm_wait_n				),
+		.intr_n					( w_opm_intr_n				),
+		.sound_l_out			( w_opm_sound_l_out			),
+		.sound_r_out			( w_opm_sound_r_out			)
 	);
 
 	// ---------------------------------------------------------
@@ -635,10 +668,13 @@ module y8960cartridge_tangprimer25k (
 		.opl2_r				( w_opl2_sound_out_r		),
 		.scc_l				( w_scc_sound_l_out			),
 		.scc_r				( w_scc_sound_r_out			),
+		.opm_l				( w_opm_sound_l_out			),
+		.opm_r				( w_opm_sound_r_out			),
 		.ssg_volume			( w_ssg_volume				),
 		.opll_volume		( w_opll_volume				),
 		.opl2_volume		( w_opl2_volume				),
 		.scc_volume			( w_scc_volume				),
+		.opm_volume			( w_opm_volume				),
 		.master_volume		( w_master_volume			),
 		.audio_l_out		( w_audio_l					),
 		.audio_r_out		( w_audio_r					)

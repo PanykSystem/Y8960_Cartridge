@@ -80,12 +80,13 @@ module msx_slot(
 	output	[7:0]	bus_wdata,
 	input	[7:0]	bus_rdata,
 	input			bus_rdata_en,
-	//	Mixer volume registers (7FF7h-7FFAh, 7FFEh)
+	//	Mixer volume registers (7FF7h-7FFAh, 7FFDh-7FFEh)
 	input			mixer_reg_en,
 	output	[7:0]	ssg_volume,
 	output	[7:0]	opll_volume,
 	output	[7:0]	opl2_volume,
 	output	[7:0]	scc_volume,
+	output	[7:0]	opm_volume,
 	output	[7:0]	master_volume
 );
 	reg				ff_slot_reset_n			= 1'b0;
@@ -116,6 +117,7 @@ module msx_slot(
 	reg		[7:0]	ff_opll_volume			= 8'd128;
 	reg		[7:0]	ff_opl2_volume			= 8'd128;
 	reg		[7:0]	ff_scc_volume			= 8'd128;
+	reg		[7:0]	ff_opm_volume			= 8'd128;
 	reg		[7:0]	ff_master_volume		= 8'd128;
 	wire			w_mixer_address;
 	wire			w_mixer_access;
@@ -168,8 +170,8 @@ module msx_slot(
 	end
 
 	assign w_active		= w_io_valid | w_mem_valid;
-	//	7FF7h: SSG, 7FF8h: OPLL, 7FF9h: OPL2, 7FFAh: SCC
-	assign w_mixer_address	= (ff_slot_address[15:4] == 12'h7FF) && (((ff_slot_address[3:0] >= 4'd7) && (ff_slot_address[3:0] <= 4'd10)) || (ff_slot_address[3:0] == 4'd14));
+	//	7FF7h: SSG, 7FF8h: OPLL, 7FF9h: OPL2, 7FFAh: SCC, 7FFDh: OPM, 7FFEh: Master
+	assign w_mixer_address	= (ff_slot_address[15:4] == 12'h7FF) && (((ff_slot_address[3:0] >= 4'd7) && (ff_slot_address[3:0] <= 4'd10)) || (ff_slot_address[3:0] == 4'd13) || (ff_slot_address[3:0] == 4'd14));
 	assign w_mixer_access	= slot_enable && ff_valid && !ff_io && ff_write && mixer_reg_en && w_mixer_address;
 
 	// --------------------------------------------------------------------
@@ -255,6 +257,7 @@ module msx_slot(
 			ff_opll_volume	<= 8'd128;
 			ff_opl2_volume	<= 8'd128;
 			ff_scc_volume	<= 8'd128;
+			ff_opm_volume	<= 8'd128;
 			ff_master_volume	<= 8'd128;
 		end
 		else if( w_mixer_access ) begin
@@ -263,6 +266,7 @@ module msx_slot(
 				4'd8:  ff_opll_volume	<= ff_slot_data;
 				4'd9:  ff_opl2_volume	<= ff_slot_data;
 				4'd10: ff_scc_volume	<= ff_slot_data;
+				4'd13: ff_opm_volume	<= ff_slot_data;
 				4'd14: ff_master_volume	<= ff_slot_data;
 				default: ;
 			endcase
@@ -273,5 +277,6 @@ module msx_slot(
 	assign opll_volume	= ff_opll_volume;
 	assign opl2_volume	= ff_opl2_volume;
 	assign scc_volume	= ff_scc_volume;
+	assign opm_volume	= ff_opm_volume;
 	assign master_volume	= ff_master_volume;
 endmodule

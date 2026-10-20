@@ -11,10 +11,13 @@ module tb ();
 	reg signed	[15:0]	opl2_r;
 	reg signed	[10:0]	scc_l;
 	reg signed	[10:0]	scc_r;
+	reg signed	[15:0]	opm_l;
+	reg signed	[15:0]	opm_r;
 	reg		[7:0]		ssg_volume;
 	reg		[7:0]		opll_volume;
 	reg		[7:0]		opl2_volume;
 	reg		[7:0]		scc_volume;
+	reg		[7:0]		opm_volume;
 	reg		[7:0]		master_volume;
 	wire signed	[23:0]	audio_l_out;
 	wire signed	[23:0]	audio_r_out;
@@ -31,10 +34,13 @@ module tb ();
 		.opl2_r			( opl2_r		),
 		.scc_l			( scc_l			),
 		.scc_r			( scc_r			),
+		.opm_l			( opm_l			),
+		.opm_r			( opm_r			),
 		.ssg_volume		( ssg_volume	),
 		.opll_volume	( opll_volume	),
 		.opl2_volume	( opl2_volume	),
 		.scc_volume		( scc_volume	),
+		.opm_volume		( opm_volume	),
 		.master_volume	( master_volume	),
 		.audio_l_out	( audio_l_out	),
 		.audio_r_out	( audio_r_out	)
@@ -70,10 +76,13 @@ module tb ();
 		opl2_r			= 16'sd0;
 		scc_l			= 11'sd0;
 		scc_r			= 11'sd0;
+		opm_l			= 16'sd0;
+		opm_r			= 16'sd0;
 		ssg_volume		= 8'd128;
 		opll_volume		= 8'd128;
 		opl2_volume		= 8'd128;
 		scc_volume		= 8'd128;
+		opm_volume		= 8'd128;
 		master_volume	= 8'd128;
 		error_count		= 0;
 
@@ -152,6 +161,40 @@ module tb ();
 		master_volume	= 8'd96;
 		check_output( "full scale at master 75%", 24'sd933804, -24'sd737292 );
 
+		ssg_l	= 13'd0;
+		ssg_r	= 13'd0;
+		opll_l	= 16'sd0;
+		opll_r	= 16'sd0;
+		opl2_l	= 16'sd0;
+		opl2_r	= 16'sd0;
+		scc_l	= 11'sd0;
+		scc_r	= 11'sd0;
+		opm_l	= 16'sd1024;
+		opm_r	= -16'sd2048;
+		master_volume	= 8'd128;
+		check_output( "OPM only at 100%", 24'sd16384, -24'sd32768 );
+
+		opm_volume		= 8'd32;
+		check_output( "OPM volume 25%", 24'sd4096, -24'sd8192 );
+
+		opm_volume		= 8'd0;
+		check_output( "OPM muted", 24'sd0, 24'sd0 );
+
+		ssg_l	= 13'd8191;
+		ssg_r	= 13'd8191;
+		opll_l	= 16'sd32767;
+		opll_r	= -16'sd32768;
+		opl2_l	= 16'sd32767;
+		opl2_r	= -16'sd32768;
+		scc_l	= 11'sd1023;
+		scc_r	= -11'sd1024;
+		opm_l	= 16'sd32767;
+		opm_r	= -16'sd32768;
+		opm_volume		= 8'd128;
+		check_output( "full scale with OPM at master 100%", 24'sd1769344, -24'sd1507344 );
+
+		master_volume	= 8'd96;
+		check_output( "full scale with OPM at master 75%", 24'sd1327008, -24'sd1130508 );
 		if( error_count == 0 ) begin
 			$display( "OK   : all tests passed" );
 		end

@@ -14,6 +14,19 @@ vlog ..\ikaopll_patch\IKAOPLL_modules\IKAOPLL_dac.v
 vlog ..\ikaopll_patch\IKAOPLL_reg.v
 vlog ..\ikaopll_patch\opll.v
 
+vlog ..\ikaopm\src\IKAOPM.v
+vlog ..\ikaopm\src\IKAOPM_modules\IKAOPM_acc.v
+vlog ..\ikaopm\src\IKAOPM_modules\IKAOPM_eg.v
+vlog ..\ikaopm\src\IKAOPM_modules\IKAOPM_lfo.v
+vlog ..\ikaopm\src\IKAOPM_modules\IKAOPM_noise.v
+vlog ..\ikaopm\src\IKAOPM_modules\IKAOPM_op.v
+vlog ..\ikaopm\src\IKAOPM_modules\IKAOPM_pg.v
+vlog ..\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v
+vlog ..\ikaopm\src\IKAOPM_modules\IKAOPM_reg.v
+vlog ..\ikaopm\src\IKAOPM_modules\IKAOPM_timer.v
+vlog ..\ikaopm\src\IKAOPM_modules\IKAOPM_timinggen.v
+vlog ..\ikaopm_patch\opm.v
+
 vlog ..\ikascc_patch\IKASCC.v
 vlog ..\ikascc_patch\IKASCC_player_s.v
 vlog ..\ikascc\src\IKASCC_modules\IKASCC_primitives.v

@@ -84,6 +84,7 @@ module tb ();
 	wire	[7:0]	opll_volume;
 	wire	[7:0]	opl2_volume;
 	wire	[7:0]	scc_volume;
+	wire	[7:0]	opm_volume;
 	wire	[7:0]	master_volume;
 	string			s_state;
 	integer			error_count;
@@ -119,6 +120,7 @@ module tb ();
 		.opll_volume			( opll_volume				),
 		.opl2_volume			( opl2_volume				),
 		.scc_volume				( scc_volume				),
+		.opm_volume				( opm_volume				),
 		.master_volume			( master_volume				)
 	);
 
@@ -477,7 +479,7 @@ module tb ();
 				ff_slot_data	= wdata;
 			end
 		join
-		if( mixer_reg_en && (address[15:4] == 12'h7FF) && (((address[3:0] >= 4'd7) && (address[3:0] <= 4'd10)) || (address[3:0] == 4'd14)) ) begin
+		if( mixer_reg_en && (address[15:4] == 12'h7FF) && (((address[3:0] >= 4'd7) && (address[3:0] <= 4'd10)) || (address[3:0] == 4'd13) || (address[3:0] == 4'd14)) ) begin
 			check( $sformatf( "write_mem mixer address=%04h wdata=%02h", address, wdata ),
 				ff_mixer_access_seen && (bus_valid == 1'b0) );
 		end
@@ -1080,6 +1082,7 @@ module tb ();
 		check( "mixer reset: OPLL volume == 128", opll_volume == 8'd128 );
 		check( "mixer reset: OPL2 volume == 128", opl2_volume == 8'd128 );
 		check( "mixer reset: SCC volume == 128", scc_volume == 8'd128 );
+		check( "mixer reset: OPM volume == 128", opm_volume == 8'd128 );
 		check( "mixer reset: Master volume == 128", master_volume == 8'd128 );
 
 		mixer_reg_en = 1'b1;
@@ -1092,17 +1095,21 @@ module tb ();
 		check( "mixer write: OPL2 volume", opl2_volume == 8'd48 );
 		check( "mixer write: SCC volume", scc_volume == 8'd64 );
 		write_mem( 16'h7FFB, 8'd80 );
-		check( "mixer removed 7FFBh: SCC volume unchanged", scc_volume == 8'd64 );
 		write_mem( 16'h7FFC, 8'd81 );
+		check( "OPM address/data 7FFBh-7FFCh: volumes unchanged",
+			scc_volume == 8'd64 && opm_volume == 8'd128 && master_volume == 8'd128 );
 		write_mem( 16'h7FFD, 8'd82 );
-		check( "mixer reserved 7FFBh-7FFDh: Master volume unchanged", master_volume == 8'd128 );
+		check( "mixer write: OPM volume", opm_volume == 8'd82 );
+		check( "mixer write 7FFDh: Master volume unchanged", master_volume == 8'd128 );
 		write_mem( 16'h7FFE, 8'd96 );
 		check( "mixer write: Master volume", master_volume == 8'd96 );
-		check( "mixer write 7FFEh: SCC volume unchanged", scc_volume == 8'd64 );
+		check( "mixer write 7FFEh: SCC/OPM volume unchanged", scc_volume == 8'd64 && opm_volume == 8'd82 );
 
 		mixer_reg_en = 1'b0;
 		write_mem( 16'h7FF7, 8'h66 );
 		check( "mixer disabled: SSG volume unchanged", ssg_volume == 8'd16 );
+		write_mem( 16'h7FFD, 8'h55 );
+		check( "mixer disabled: OPM volume unchanged", opm_volume == 8'd82 );
 		write_mem( 16'h7FFE, 8'h77 );
 		check( "mixer disabled: Master volume unchanged", master_volume == 8'd96 );
 

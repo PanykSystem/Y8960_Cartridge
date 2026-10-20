@@ -120,6 +120,7 @@ module tb ();
 		.opll_volume			(							),
 		.opl2_volume			(							),
 		.scc_volume				(							),
+		.opm_volume				(							),
 		.master_volume			(							)
 	);
 
@@ -139,12 +140,14 @@ module tb ();
 		.bus_opl2_cs			( w_bus_opl2_cs				),
 		.bus_ssg_cs				( w_bus_ssg_cs				),
 		.bus_scc_cs				( w_bus_scc_cs				),
+		.bus_opm_cs				(							),
 		.bus_sysctrl_cs			(							),
 		.bus_timer_ready		( 1'b0						),
 		.bus_opll_ready			( 1'b1						),
 		.bus_opl2_ready			( 1'b1						),
 		.bus_ssg_ready			( 1'b1						),
 		.bus_scc_ready			( w_bus_scc_ready			),
+		.bus_opm_ready			( 1'b1						),
 		.bus_sysctrl_ready		( 1'b0						),
 		.memory_io_en			( w_mixer_reg_en			),
 		.led					(							)
@@ -535,12 +538,13 @@ module tb ();
 		end
 		if( u_msx_slot.ff_ssg_volume !== 8'h27 || u_msx_slot.ff_opll_volume !== 8'h28 ||
 			u_msx_slot.ff_opl2_volume !== 8'h29 || u_msx_slot.ff_scc_volume !== 8'h2A ||
-			u_msx_slot.ff_master_volume !== 8'h2E ) begin
+			u_msx_slot.ff_opm_volume !== 8'h2D || u_msx_slot.ff_master_volume !== 8'h2E ) begin
 			$display( "[ERROR] MMIO volume registers did not update" );
 			error_count++;
 		end
 		if( u_address_decode.ff_opll_io_en !== 1'b0 || u_address_decode.ff_timer_io_en !== 1'b0 ||
-			u_address_decode.ff_ssg_io_en !== 1'b1 || u_address_decode.ff_opl2_io_en !== 1'b1 ) begin
+			u_address_decode.ff_ssg_io_en !== 1'b1 || u_address_decode.ff_opl2_io_en !== 1'b1 ||
+			u_address_decode.ff_opm_io_en !== 1'b1 ) begin
 			$display( "[ERROR] MMIO I/O enablers did not update" );
 			error_count++;
 		end

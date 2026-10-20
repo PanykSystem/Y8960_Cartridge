@@ -121,6 +121,7 @@ module tb ();
 	wire			bus_opl2_cs;
 	wire			bus_ssg_cs;
 	wire			bus_scc_cs;
+	wire			bus_opm_cs;
 	wire			bus_sysctrl_cs;
 	reg				memory_io_en;
 	reg				mixer_reg_en;
@@ -128,6 +129,7 @@ module tb ();
 	wire	[7:0]	opll_volume;
 	wire	[7:0]	opl2_volume;
 	wire	[7:0]	scc_volume;
+	wire	[7:0]	opm_volume;
 	wire	[7:0]	master_volume;
 	wire	[3:0]	led;
 	string			s_state;
@@ -164,6 +166,7 @@ module tb ();
 		.opll_volume			( opll_volume				),
 		.opl2_volume			( opl2_volume				),
 		.scc_volume				( scc_volume				),
+		.opm_volume				( opm_volume				),
 		.master_volume			( master_volume				)
 	);
 
@@ -181,12 +184,14 @@ module tb ();
 		.bus_opl2_cs			( bus_opl2_cs			),
 		.bus_ssg_cs				( bus_ssg_cs			),
 		.bus_scc_cs				( bus_scc_cs			),
+		.bus_opm_cs				( bus_opm_cs			),
 		.bus_sysctrl_cs			( bus_sysctrl_cs		),
 		.bus_timer_ready		( 1'b1					),
 		.bus_opll_ready			( 1'b1					),
 		.bus_opl2_ready			( 1'b1					),
 		.bus_ssg_ready			( 1'b1					),
 		.bus_scc_ready			( 1'b1					),
+		.bus_opm_ready			( 1'b1					),
 		.bus_sysctrl_ready		( 1'b1					),
 		.memory_io_en			( memory_io_en			),
 		.led					( led					)

@@ -1142,3 +1142,29 @@
   - トップ test001: System Controller 検出、DIP 切り離し、ブートコピー、ROM 読み出しの回帰テスト PASS。
 - 合成・配置配線と実機確認は未実施。Gowin EDA の合成はユーザーが行う。
 - 仕様書そのものは今回編集していない。旧「RAM Mode=0 または BANK1 が ROM のときのみ」の I/O 条件と、BANK2 SCC の RAM Mode 制限が残っていれば、今回の決定に合わせて更新が必要。
+
+## 2026-10-20 深夜: IKAOPM (OPM, YM2151 互換) の追加
+- 仕様: I/O 7Eh（アドレス）/7Fh（データ、読み出しはステータス）、MMIO 7FFBh（アドレス）/7FFCh（データ）、7FFDh（OPM 音量、初期値 128）、7FFFh bit2（OPM I/O 許可、初期値 0）。
+- ユーザーの決定: busy の扱いは /WAIT とステータス読み出しの両方を使う。IRQ は /INT に接続する。ステータス読み出しは I/O 7Fh のみ（MMIO は書き込み専用で、背後の ROM/RAM の読み出しを妨げない）。
+- 実装:
+  - 新規 src/ikaopm_patch/opm.v: IKAOPM（原本は無変更。FULLY_SYNCHRONOUS=1, FAST_RESET=1, USE_BRAM=0）のラッパー。
+    - 16段の書き込みキューを持ち、IKAOPM へ1件ずつ送る。送出後の待ち時間は、アドレス書き込みで 8 phiM、データ書き込みで 80 phiM（YM2151 の busy 64 phiM ＋余裕）。
+    - キューが満杯の間は /WAIT を出す。
+    - 7Fh のステータス bit7 = (キューに未処理あり | 送出中 | 待ち時間中) | IKAOPM の busy。bit1/0 はタイマーフラグ。
+    - o_IRQ_n は /INT へ。
+  - y8960_address_decode.v: bus_opm_cs/bus_opm_ready、ff_opm_io_en（7FFFh bit2）、7Eh-7Fh と 7FFBh/7FFCh のデコードを追加。
+  - msx_slot.v: 7FFDh の opm_volume を追加。
+  - mixier.v: 12ステートに拡張（L: SSG/OPLL/OPL2/SCC/OPM→Master、R も同様）。乗算器は1個のまま共用。
+  - トップ: u_opm を追加。/WAIT・rdata・rdata_en・/INT・ミキサーに接続。
+  - gprj に opm.v を追加。test001/run.bat に IKAOPM のソースを追加。
+- 検証（ModelSim、すべて PASS）:
+  - 新規 ikaopm_patch/test001:
+    - リセット直後の busy とその解除、7Eh/7FFCh 読み出しでデータを返さないこと。
+    - キュー満杯時の /WAIT と解除。
+    - タイマーA の IRQ とフラグ解除。
+    - I/O と MMIO の混在書き込みによるキーオンで L/R に音が出ること、RL=L のみで R が無音になること。
+  - mixer/test001（OPM 単独・音量・ミュート・全音源合計）。
+  - y8960_address_decode/test001（OPM I/O の無効・有効・再無効、MMIO の cs、7FFDh は cs なしで ready）。
+  - msx_slot/test001・test002、ikascc_patch/test001（7FFDh の音量と 7FFFh bit2 を含む）、トップ test001。
+- 未実施: 合成・配置配線（IKAOPM はロジック規模が大きく、USE_BRAM=0 なので、リソースとタイミングの確認が必要）と実機確認。
+- 仕様書の MMIO 行の注記に「RAM Mode=0 または BANK1 が ROM のときのみ」が残っていれば、常時有効の仕様に合わせて更新が必要。

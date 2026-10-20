@@ -21,17 +21,26 @@ Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridg
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopll_patch\IKAOPLL_modules\IKAOPLL_dac.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopll_patch\IKAOPLL_reg.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopll_patch\opll.v'
+Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM.v'
+Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_acc.v'
+Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_eg.v'
+Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_lfo.v'
+Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_noise.v'
+Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_op.v'
+Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_pg.v'
+Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v'
+Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_reg.v'
+Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_timer.v'
+Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_timinggen.v'
+Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm_patch\opm.v'
+Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikascc\src\IKASCC_modules\IKASCC_primitives.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikascc_patch\IKASCC.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikascc_patch\IKASCC_player_s.v'
-Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikascc\src\IKASCC_modules\IKASCC_primitives.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikascc_patch\IKASCC_vrc_s.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikascc_patch\scc.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikascc_patch\scc_bank.v'
-Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\msx_slot\msx_slot.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\mixer\mixier.v'
-Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2_patch\jtopl.v'
-Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2_patch\jtopl2.v'
-Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2_patch\jtopl_acc.v'
+Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\msx_slot\msx_slot.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2\src\jtopl_csr.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2\src\jtopl_div.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2\src\jtopl_eg.v'
@@ -44,9 +53,7 @@ Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridg
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2\src\jtopl_exprom.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2\src\jtopl_lfo.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2\src\jtopl_logsin.v'
-Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2_patch\jtopl_mmr.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2\src\jtopl_noise.v'
-Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2_patch\jtopl_op.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2\src\jtopl_pg.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2\src\jtopl_pg_comb.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2\src\jtopl_pg_inc.v'
@@ -60,6 +67,11 @@ Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridg
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2\src\jtopl_single_acc.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2\src\jtopl_slot_cnt.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2\src\jtopl_timers.v'
+Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2_patch\jtopl.v'
+Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2_patch\jtopl2.v'
+Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2_patch\jtopl_acc.v'
+Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2_patch\jtopl_mmr.v'
+Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2_patch\jtopl_op.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\opl2_patch\opl2.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\pan\pan_lut.v'
 Analyzing Verilog file 'C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\pll_init.v'
@@ -143,6 +155,57 @@ Compiling module 'jt10_adpcmb'("C:\Users\hra\Documents\github\HRA_product\Y8960_
 Compiling module 'jt10_adpcmb_interpol'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\adpcm\src\jt10_adpcmb_interpol.v":22)
 Compiling module 'jt10_adpcm_div'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\adpcm\src\jt10_adpcm_div.v":25)
 Compiling module 'jt10_adpcmb_gain'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\adpcm\src\jt10_adpcmb_gain.v":24)
+Compiling module 'opm'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm_patch\opm.v":14)
+Extracting RAM for identifier 'ff_queue'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm_patch\opm.v":51)
+Compiling module 'IKAOPM(FAST_RESET=1)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM.v":1)
+Compiling module 'IKAOPM_timinggen(FAST_RESET=1)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_timinggen.v":1)
+Compiling module 'IKAOPM_reg'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_reg.v":1)
+Compiling module 'primitive_syncdlatch'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":58)
+Compiling module 'primitive_syncsrlatch'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":34)
+Compiling module 'reg_submdl_loreg_decoder(TARGET_ADDR=8'h10)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_reg.v":784)
+Compiling module 'reg_submdl_loreg_decoder(TARGET_ADDR=8'h11)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_reg.v":784)
+Compiling module 'reg_submdl_loreg_decoder(TARGET_ADDR=8'h12)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_reg.v":784)
+Compiling module 'reg_submdl_loreg_decoder(TARGET_ADDR=8'h14)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_reg.v":784)
+Compiling module 'reg_submdl_loreg_decoder(TARGET_ADDR=8'h01)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_reg.v":784)
+Compiling module 'reg_submdl_loreg_decoder(TARGET_ADDR=8'h0f)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_reg.v":784)
+Compiling module 'reg_submdl_loreg_decoder(TARGET_ADDR=8'h19)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_reg.v":784)
+Compiling module 'reg_submdl_loreg_decoder(TARGET_ADDR=8'h18)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_reg.v":784)
+Compiling module 'reg_submdl_loreg_decoder(TARGET_ADDR=8'h1B)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_reg.v":784)
+Compiling module 'reg_submdl_loreg_decoder(TARGET_ADDR=8'h08)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_reg.v":784)
+Compiling module 'primitive_counter(WIDTH=5)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":78)
+Compiling module 'primitive_sr(WIDTH=3,LENGTH=8,TAP=0)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":153)
+Compiling module 'primitive_sr(WIDTH=2,LENGTH=8,TAP=8)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":153)
+Compiling module 'primitive_sr(WIDTH=6,LENGTH=8,TAP=1)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":153)
+Compiling module 'primitive_sr(WIDTH=7,LENGTH=8,TAP=1)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":153)
+Compiling module 'primitive_sr(WIDTH=3,LENGTH=8,TAP=7)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":153)
+Compiling module 'primitive_sr(WIDTH=3,LENGTH=8,TAP=4)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":153)
+Compiling module 'primitive_sr(WIDTH=2,LENGTH=8,TAP=5)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":153)
+Compiling module 'primitive_sr(WIDTH=2,TAP=27)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":153)
+Compiling module 'primitive_sr(WIDTH=3)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":153)
+Compiling module 'primitive_sr(WIDTH=4)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":153)
+Compiling module 'primitive_sr(WIDTH=5)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":153)
+Compiling module 'primitive_sr'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":153)
+Compiling module 'primitive_sr(WIDTH=2)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":153)
+Compiling module 'primitive_sr(WIDTH=7)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":153)
+Compiling module 'IKAOPM_noise'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_noise.v":1)
+Compiling module 'IKAOPM_lfo'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_lfo.v":1)
+Compiling module 'primitive_counter'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":78)
+Compiling module 'primitive_counter(WIDTH=15)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":78)
+Compiling module 'IKAOPM_pg'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_pg.v":1)
+Compiling module 'pg_submdl_fnumrom'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_pg.v":797)
+Compiling module 'primitive_sr(WIDTH=20,LENGTH=22,TAP=22)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":153)
+Compiling module 'IKAOPM_eg'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_eg.v":1)
+Compiling module 'primitive_counter(WIDTH=2)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":78)
+Compiling module 'primitive_sr(WIDTH=2,LENGTH=27,TAP=27)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":153)
+Compiling module 'primitive_sr(WIDTH=10,LENGTH=28,TAP=28)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":153)
+Compiling module 'IKAOPM_op'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_op.v":1)
+Compiling module 'op_submdl_logsinrom'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_op.v":559)
+Compiling module 'op_submdl_exprom'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_op.v":613)
+Compiling module 'primitive_sr(WIDTH=14,LENGTH=8,TAP=8)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":153)
+Compiling module 'IKAOPM_acc'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_acc.v":1)
+Compiling module 'IKAOPM_timer'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_timer.v":1)
+Compiling module 'primitive_counter(WIDTH=10)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":78)
+Compiling module 'primitive_counter(WIDTH=8)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_primitives.v":78)
 Compiling module 'opllex'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopll_patch\opll.v":7)
 Extracting RAM for identifier 'ff_queue'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopll_patch\opll.v":33)
 Compiling module 'IKAOPLL(FAST_RESET=1,USE_PIPELINED_MULTIPLIER=1)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopll_patch\IKAOPLL.v":1)
@@ -176,9 +239,9 @@ Compiling module 'IKAOPLL_sr(WIDTH=9,LENGTH=5)'("C:\Users\hra\Documents\github\H
 Compiling module 'dual_ssg(BUILTIN=0)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ssg\dual_ssg.v":48)
 Compiling module 'ssg_core(builtin=0)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ssg\ssg_core.v":58)
 Compiling module 'ssg_core(core_number=1'b1)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ssg\ssg_core.v":58)
-Compiling module 'scc'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikascc_patch\scc.v":8)
+Compiling module 'scc'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikascc_patch\scc.v":9)
 Compiling module 'IKASCC'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikascc_patch\IKASCC.v":7)
-Compiling module 'IKASCC_vrc_s(RAMCTRL_ASYNC=1)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikascc_patch\IKASCC_vrc_s.v":25)
+Compiling module 'IKASCC_vrc_s(RAMCTRL_ASYNC=1)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikascc_patch\IKASCC_vrc_s.v":27)
 Compiling module 'IKASCC_player_s(FAST_CLOCK=1,RAMCTRL_ASYNC=1)'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikascc_patch\IKASCC_player_s.v":6)
 Compiling module 'IKASCC_player_memory_s'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikascc_patch\IKASCC_player_s.v":678)
 Extracting RAM for identifier 'wavetable_ram'("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikascc_patch\IKASCC_player_s.v":702)
@@ -214,6 +277,7 @@ Running technical mapping ...
 [75%] Tech-Mapping Phase 2 completed
 [80%] Tech-Mapping Phase 3 completed
 [90%] Tech-Mapping Phase 4 completed
+WARN  (NL0002) : The module "primitive_sr" instantiated to "u_cyc13r_cyc40r_attenlevel_sr" is swept in optimizing("C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\src\ikaopm\src\IKAOPM_modules\IKAOPM_eg.v":694)
 [95%] Generate netlist file "C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\impl\gwsynthesis\Y8960_Cartridge_TangPrimer25K.vg" completed
 [100%] Generate report file "C:\Users\hra\Documents\github\HRA_product\Y8960_Cartridge\fpga\Y8960_Cartridge_TangPrimer25K\impl\gwsynthesis\Y8960_Cartridge_TangPrimer25K_syn.rpt.html" completed
 GowinSynthesis finish
