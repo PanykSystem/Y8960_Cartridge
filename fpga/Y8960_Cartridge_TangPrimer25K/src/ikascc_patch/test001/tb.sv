@@ -50,6 +50,11 @@ module tb ();
 	wire	[7:0]	w_bus_rdata;
 	wire			w_bus_rdata_en;
 	wire			w_mixer_reg_en;
+	wire			w_bus_ssg_cs;
+	wire			w_bus_opll_cs;
+	wire			w_bus_opl2_cs;
+	reg		[2:0]	mio_seen;
+	reg				checking_mio;
 	wire			w_bus_scc_cs;
 	wire			w_bus_scc_ready;
 	wire	[7:0]	w_bus_scc_rdata;
@@ -118,7 +123,7 @@ module tb ();
 		.master_volume			(							)
 	);
 
-	assign w_mixer_reg_en = ~w_scc_ma[5] | ~w_scc_ma[4];
+	assign w_mixer_reg_en = 1'b1;
 
 	y8960_address_decode u_address_decode (
 		.clk					( clk_42m					),
@@ -130,15 +135,15 @@ module tb ();
 		.bus_ready				( w_bus_ready				),
 		.bus_wdata				( w_bus_wdata				),
 		.bus_timer_cs			(							),
-		.bus_opll_cs			(							),
-		.bus_opl2_cs			(							),
-		.bus_ssg_cs				(							),
+		.bus_opll_cs			( w_bus_opll_cs				),
+		.bus_opl2_cs			( w_bus_opl2_cs				),
+		.bus_ssg_cs				( w_bus_ssg_cs				),
 		.bus_scc_cs				( w_bus_scc_cs				),
 		.bus_sysctrl_cs			(							),
 		.bus_timer_ready		( 1'b0						),
-		.bus_opll_ready			( 1'b0						),
-		.bus_opl2_ready			( 1'b0						),
-		.bus_ssg_ready			( 1'b0						),
+		.bus_opll_ready			( 1'b1						),
+		.bus_opl2_ready			( 1'b1						),
+		.bus_ssg_ready			( 1'b1						),
 		.bus_scc_ready			( w_bus_scc_ready			),
 		.bus_sysctrl_ready		( 1'b0						),
 		.memory_io_en			( w_mixer_reg_en			),
@@ -282,6 +287,15 @@ module tb ();
 	// --------------------------------------------------------------------
 	int				cpu_access_count;
 	int				cpu_write_count;
+	always @( posedge clk_42m ) begin
+		if( checking_mio ) begin
+			mio_seen <= mio_seen | { w_bus_ssg_cs, w_bus_opll_cs, w_bus_opl2_cs };
+			if( w_bus_scc_cs ) begin
+				$display( "[ERROR] MMIO write selected SCC/SRAM: %04X", w_bus_address );
+				error_count = error_count + 1;
+			end
+		end
+	end
 	always @( posedge clk_42m ) begin
 		if( w_cpu_valid && w_cpu_ready ) begin
 			cpu_access_count	<= cpu_access_count + 1;
@@ -476,6 +490,71 @@ module tb ();
 		repeat( 200 ) @( posedge clk_42m );
 	endtask
 
+	task check_mio_bank( input bit ram_mode, input [5:0] bank );
+		int count, waits;
+		reg [7:0] saved_sram [0:15];
+		reg [17:0] address;
+		write_reg( 16'h4FFB, 8'h01 );
+		write_reg( 16'h4FFD, { 2'b00, bank } );
+		write_reg( 16'h4FFB, { 7'd0, ram_mode } );
+		wait_idle();
+		$display( "[TEST] MMIO RAM Mode=%0d BANK1=#%0d", ram_mode, bank );
+
+		//	The address immediately below MMIO must retain its memory/SCC function.
+		mem_write( 16'h7FEF, 8'h00, waits );
+		wait_idle();
+		if( ram_mode && bank == 6'd63 ) begin
+			if( u_scc.u_ikascc.IKASCC_SYNC_MODE.u_player_main.test !== 8'h00 ) begin
+				$display( "[ERROR] 7FEFh did not reach SCC mode register" );
+				error_count++;
+			end
+		end
+		else if( ram_mode && bank[4] ) begin
+			check_sram( { 1'b0, bank[4:0], 13'h1FEF }, 8'h00, "7FEFh RAM boundary" );
+		end
+
+		for( int offset = 0; offset < 16; offset++ ) begin
+			address = { bank[4:0], 13'h1FF0 } + offset;
+			saved_sram[offset] = u_model.mem[address];
+		end
+		count = cpu_access_count;
+		mio_seen = 3'b000;
+		checking_mio = 1'b1;
+		for( int offset = 0; offset < 16; offset++ ) begin
+			mem_write( 16'h7FF0 + offset, 8'h20 + offset, waits );
+			if( waits != 0 ) begin
+				$display( "[ERROR] MMIO write waited: 7FF%01X", offset );
+				error_count++;
+			end
+		end
+		checking_mio = 1'b0;
+		wait_idle();
+		if( cpu_access_count != count || mio_seen !== 3'b111 ) begin
+			$display( "[ERROR] MMIO SRAM accesses=%0d, sound selects=%03b", cpu_access_count - count, mio_seen );
+			error_count++;
+		end
+		if( u_msx_slot.ff_ssg_volume !== 8'h27 || u_msx_slot.ff_opll_volume !== 8'h28 ||
+			u_msx_slot.ff_opl2_volume !== 8'h29 || u_msx_slot.ff_scc_volume !== 8'h2A ||
+			u_msx_slot.ff_master_volume !== 8'h2E ) begin
+			$display( "[ERROR] MMIO volume registers did not update" );
+			error_count++;
+		end
+		if( u_address_decode.ff_opll_io_en !== 1'b0 || u_address_decode.ff_timer_io_en !== 1'b0 ||
+			u_address_decode.ff_ssg_io_en !== 1'b1 || u_address_decode.ff_opl2_io_en !== 1'b1 ) begin
+			$display( "[ERROR] MMIO I/O enablers did not update" );
+			error_count++;
+		end
+		if( ram_mode && bank == 6'd63 &&
+			u_scc.u_ikascc.IKASCC_SYNC_MODE.u_player_main.test !== 8'h00 ) begin
+			$display( "[ERROR] MMIO writes changed SCC mode register" );
+			error_count++;
+		end
+		for( int offset = 0; offset < 16; offset++ ) begin
+			address = { bank[4:0], 13'h1FF0 } + offset;
+			check_sram( { 1'b0, address }, saved_sram[offset], "MMIO preserves SRAM" );
+		end
+	endtask
+
 	// --------------------------------------------------------------------
 	//	Test bench
 	// --------------------------------------------------------------------
@@ -509,6 +588,8 @@ module tb ();
 		adpcm_seed		= 1;
 		cpu_access_count	= 0;
 		cpu_write_count		= 0;
+		checking_mio		= 0;
+		mio_seen			= 0;
 
 		for( i = 0; i < 512 * 1024; i++ ) begin
 			u_model.mem[i] = f_pattern( i );
@@ -565,7 +646,14 @@ module tb ();
 			$display( "[ERROR] SRAM was accessed (%0d) or waited (%0d)", cpu_access_count - count, max_waits );
 			error_count = error_count + 1;
 		end
-		check_read( 16'h9000, 19'h3F000, "bank2=3Fh, 9000h" );
+		//	BANK#63 outside of the SCC register window is unconnected.
+		count = cpu_access_count;
+		mem_read( 16'h9000, rdata, waits );
+		wait_idle();
+		if( cpu_access_count != count || waits != 0 || (rdata !== 8'hzz && rdata !== 8'hFF) ) begin
+			$display( "[ERROR] bank2=3Fh, 9000h is not unconnected: access %0d, wait %0d, read %02X", cpu_access_count - count, waits, rdata );
+			error_count = error_count + 1;
+		end
 		write_reg( 16'h9000, 8'h02 );		//	BANK2 = #2
 
 		// ----------------------------------------------------------------
@@ -683,6 +771,12 @@ module tb ();
 		if( adpcm_read_count < 100 ) begin
 			$display( "[ERROR] ADPCM requester was starved" );
 			error_count = error_count + 1;
+		end
+
+		for( int mode = 0; mode < 2; mode++ ) begin
+			for( int bank = 0; bank < 64; bank++ ) begin
+				check_mio_bank( mode != 0, bank );
+			end
 		end
 
 		if( error_count == 0 ) begin

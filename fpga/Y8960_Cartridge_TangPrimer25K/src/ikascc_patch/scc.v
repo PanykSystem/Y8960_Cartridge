@@ -3,6 +3,7 @@
 // ====================================================================
 //	2026/01/22 t.hara
 //	2026/10/19 Stereo panning (9900h-9904h: Ch.A-E PAN)
+//	2026/10/20 PAN also at 7900h-7904h in RAM Mode=1
 // --------------------------------------------------------------------
 
 module scc (
@@ -65,12 +66,12 @@ module scc (
 	assign w_wr_n		= ~bus_write;
 	assign w_rd_n		= bus_write;
 
-	//	9900h-9904h in the SCC register window. Writes are not passed to IKASCC,
-	//	because IKASCC decodes only A7-A0 and would treat them as 9800h-9804h.
-	//	The PAN registers themselves are writable only in RAM Mode = 0 (scc_ma[18]).
-	assign w_pan_address	= (bus_address[15:8] == 8'h99) && (bus_address[7:3] == 5'd0) && (bus_address[2:0] <= 3'd4);
+	//	PAN registers at x900h-x904h in the SCC register window
+	//	(BANK2: 9900h-9904h, RAM Mode=1 BANK1: 7900h-7904h). Writes are not passed
+	//	to IKASCC, because IKASCC decodes only A7-A0 and would treat them as x800h-x804h.
+	assign w_pan_address	= (bus_address[10:8] == 3'b001) && (bus_address[7:3] == 5'd0) && (bus_address[2:0] <= 3'd4);
 	assign w_pan_window		= w_cs & bus_write & w_sccreg_en & w_pan_address;
-	assign w_pan_write		= w_pan_window & ~scc_ma[18];
+	assign w_pan_write		= w_pan_window;
 	assign w_core_cs		= w_cs & ~w_pan_window;
 
 	// --------------------------------------------------------------------

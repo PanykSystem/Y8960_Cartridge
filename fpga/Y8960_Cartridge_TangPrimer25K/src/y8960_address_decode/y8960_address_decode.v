@@ -129,10 +129,10 @@ module y8960_address_decode(
 	wire			w_bus_sysctrl_cs	= w_io_access & w_io_sysctrl_match;
 
 	// --------------------------------------------------------------------
-	//	Memory mapped I/O address decode (7FE0h-7FFFh window, write only)
+	//	Memory mapped I/O address decode (7FF0h-7FFFh window, write only)
 	// --------------------------------------------------------------------
 	wire			w_mem_access		= bus_valid & ~bus_io;
-	wire			w_mio_window		= memory_io_en & bus_write & (bus_address[15:5] == 11'b011_1111_1111);
+	wire			w_mio_window		= memory_io_en & bus_write & (bus_address[15:4] == 12'h7FF);
 	wire			w_mio_active		= w_mem_access & w_mio_window;
 
 	wire			w_mio_ssg_match		= (bus_address[4:1] == c_ssg_mio[4:1]);
@@ -148,7 +148,7 @@ module y8960_address_decode(
 	wire			w_bus_opl2_cs_mio	= w_mio_active & w_mio_opl2_match;
 	wire			w_mio_io_en1_cs		= w_mio_active & w_mio_io_en1_match;
 	wire			w_mio_io_en2_cs		= w_mio_active & w_mio_io_en2_match;
-	wire			w_mio_default_match	= w_mio_active & ~w_mio_known_match;
+	wire			w_mio_unused_cs		= w_mio_active & ~w_mio_known_match;
 	wire			w_bus_io_en_cs		= w_mio_io_en1_cs | w_mio_io_en2_cs;
 
 	//	Plain memory access (no mio window hit, or read, or io_en=0) always selects SCC
@@ -157,7 +157,7 @@ module y8960_address_decode(
 	wire			w_bus_ssg_cs		= w_bus_ssg_cs_io | w_bus_ssg_cs_mio;
 	wire			w_bus_opll_cs		= w_bus_opll_cs_io | w_bus_opll_cs_mio;
 	wire			w_bus_opl2_cs		= w_bus_opl2_cs_io | w_bus_opl2_cs_mio;
-	wire			w_bus_scc_cs		= w_mem_plain | w_mio_default_match;
+	wire			w_bus_scc_cs		= w_mem_plain;
 
 	assign bus_timer_cs		= w_bus_timer_cs;
 	assign bus_opll_cs		= w_bus_opll_cs;
@@ -172,7 +172,8 @@ module y8960_address_decode(
 						| (w_bus_ssg_cs & bus_ssg_ready)
 						| (w_bus_scc_cs & bus_scc_ready)
 						| (w_bus_sysctrl_cs & bus_sysctrl_ready)
-						| w_bus_io_en_cs;
+						| w_bus_io_en_cs
+						| w_mio_unused_cs;
 
 	// --------------------------------------------------------------------
 	//	Bus I/O enable latch

@@ -326,8 +326,8 @@ module y8960cartridge_tangprimer25k (
 		.master_volume			( w_master_volume			)
 	);
 
-	//	In RAM mode, BANK1 #0-#15 remains ROM and keeps the memory mapped I/O visible.
-	assign w_mixer_reg_en = ~w_scc_ma[5] | ~w_scc_ma[4];
+	//	Memory mapped I/O is visible regardless of RAM mode and BANK1 selection.
+	assign w_mixer_reg_en = 1'b1;
 
 	// ---------------------------------------------------------
 	y8960_address_decode u_y8960_address_decode (

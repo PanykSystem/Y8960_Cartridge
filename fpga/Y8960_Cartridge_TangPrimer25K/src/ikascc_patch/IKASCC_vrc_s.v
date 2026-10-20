@@ -20,6 +20,8 @@
 //
 //	BANK#0-#7 .... ROM
 //	BANK#8-#15 ... RAM
+//	BANK#63 ...... SCC register window (BANK2 always / BANK1 in RAM Mode=1),
+//	               unconnected elsewhere
 // ---------------------------------------------------------
 
 module IKASCC_vrc_s #(parameter RAMCTRL_ASYNC = 0) (
@@ -66,9 +68,12 @@ wire			rst_n = i_RST_n;
 //////	ROM bank registers
 ////
 
-//	ROM chip select: 4000h-BFFFh, except the SCC register window
+//	ROM chip select: 4000h-BFFFh, except BANK#63.
+//	BANK#63 is the SCC register window (BANK2: 9800h-9FFFh, RAM Mode=1 BANK1: 7800h-7FFFh)
+//	or unconnected elsewhere.
 wire			sccreg_window;
-assign	o_ROMCS_n = i_CS_n | ~(i_ABHI[4] ^ i_ABHI[3]) | sccreg_window;
+reg		[5:0]	selected_bank;
+assign	o_ROMCS_n = i_CS_n | ~(i_ABHI[4] ^ i_ABHI[3]) | (selected_bank == 6'h3F);
 
 //synchronizer
 reg		[7:0]	db_z;
@@ -125,11 +130,12 @@ end
 
 always @(*) begin
 	case({~i_ABHI[3], i_ABHI[2]})
-		2'b00: o_ROMADDR = { rammode, bankreg0[4:0] };
-		2'b01: o_ROMADDR = { rammode, bankreg1[4:0] };
-		2'b10: o_ROMADDR = { rammode, bankreg2[4:0] };
-		2'b11: o_ROMADDR = { rammode, bankreg3[4:0] };
+		2'b00: selected_bank = bankreg0;
+		2'b01: selected_bank = bankreg1;
+		2'b10: selected_bank = bankreg2;
+		2'b11: selected_bank = bankreg3;
 	endcase
+	o_ROMADDR = { rammode, selected_bank[4:0] };
 end
 
 
@@ -138,6 +144,7 @@ end
 //////	SCC register enable
 ////
 
+//	BANK2=#63 always enables SCC; BANK1=#63 enables it only in RAM Mode=1.
 assign	sccreg_window = ((bankreg2 == 6'h3F) & (i_ABHI == 5'b1001_1)) | (rammode & (bankreg1 == 6'h3F) & (i_ABHI == 5'b0111_1));
 
 generate
@@ -145,13 +152,13 @@ generate
 		always @(posedge emuclk) begin
 			if(!mclkpcen_n) begin
 				//synchronized
-				o_SCCREG_EN = ((bankreg2 == 6'h3F) & (i_ABHI == 5'b1001_1)) | (rammode & (bankreg1 == 6'h3F) & (i_ABHI == 5'b0111_1));
+				o_SCCREG_EN = sccreg_window;
 			end
 		end
     end
 	else begin : ramctrl_async
 		always @(*) begin
-			o_SCCREG_EN = (bankreg2 == 6'h3F) & (i_ABHI == 5'b1001_1);
+			o_SCCREG_EN = sccreg_window;
 		end
 	end
 endgenerate

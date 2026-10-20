@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------------
-//	Test of scc.v stereo panning (9900h-9904h: SCC Ch.A-E PAN)
+//	Test of scc.v stereo panning (9900h-9904h / 7900h-7904h: SCC Ch.A-E PAN)
 //	Copyright (C)2026 Takayuki Hara (HRA!)
 // -----------------------------------------------------------------------------
 
@@ -96,6 +96,25 @@ module tb ();
 		end
 	endtask
 
+	task check_romcs( input string name, input [15:0] address, input expected_cs_n );
+		@( posedge clk );
+		bus_address	<= address;
+		bus_write	<= 1'b0;
+		bus_cs		<= 1'b1;
+		bus_valid	<= 1'b1;
+		@( posedge clk );
+		#1;
+		if( scc_memory_cs == expected_cs_n ) begin
+			$display( "OK   : %s ROMCS_n=%0d", name, scc_memory_cs );
+		end
+		else begin
+			$display( "ERROR: %s ROMCS_n expected %0d, actual %0d", name, expected_cs_n, scc_memory_cs );
+			error_count++;
+		end
+		bus_cs		<= 1'b0;
+		bus_valid	<= 1'b0;
+		repeat( 36 ) @( posedge clk );
+	endtask
 	task check_pan( input string name, input [7:0] a, input [7:0] b, input [7:0] c, input [7:0] d, input [7:0] e );
 		if( u_dut.ff_pan_a == a && u_dut.ff_pan_b == b && u_dut.ff_pan_c == c && u_dut.ff_pan_d == d && u_dut.ff_pan_e == e ) begin
 			$display( "OK   : %s PAN=%0d,%0d,%0d,%0d,%0d", name, a, b, c, d, e );
@@ -229,20 +248,88 @@ module tb ();
 		end
 		write_mem( 16'h9900, 8'd1 );
 
-		//	RAM Mode = 1: PAN registers are not available (spec: RAM Mode=0 only),
-		//	and the write must not reach wave RAM 9800h either.
+		//	RAM Mode = 1, BANK2 = #63: SCC and PAN remain accessible.
 		write_mem( 16'h9800, 8'h40 );
 		write_mem( 16'h4FFB, 8'h01 );
 		write_mem( 16'h4FFE, 8'h3F );
 		write_mem( 16'h9900, 8'd200 );
 		write_mem( 16'h9904, 8'd200 );
-		check_pan( "write in RAM Mode=1 ignored", 1, 1, 1, 1, 1 );
+		write_mem( 16'h9800, 8'h5A );
+		check_pan( "RAM Mode=1 BANK2=#63 PAN write", 200, 1, 1, 1, 200 );
+		check_romcs( "RAM Mode=1 BANK2=#63 9800h is SCC", 16'h9800, 1'b1 );
+		check_romcs( "RAM Mode=1 BANK2=#63 9900h no SRAM", 16'h9900, 1'b1 );
+		check_romcs( "RAM Mode=1 BANK2=#63 8000h unconnected", 16'h8000, 1'b1 );
+		check_mem( "RAM Mode=1 BANK2=#63 wave RAM", 16'h9800, 8'h5A );
+		write_mem( 16'h9900, 8'd10 );
+		check_mem( "RAM Mode=1 BANK2 PAN keeps wave RAM", 16'h9800, 8'h5A );
+		write_mem( 16'h9880, 8'h23 );
+		write_mem( 16'h9881, 8'h01 );
+		if( u_dut.u_ikascc.IKASCC_SYNC_MODE.u_player_main.u_ctrl_ch1.freq !== 12'h123 ) begin
+			$display( "ERROR: RAM Mode=1 BANK2 frequency write" );
+			error_count++;
+		end
+
+		//	RAM Mode = 1, BANK2 = #31: SRAM bank
+		write_mem( 16'h4FFE, 8'h1F );
+		check_romcs( "RAM Mode=1 BANK2=#31 9800h is SRAM", 16'h9800, 1'b0 );
+		if( scc_ma == 6'b1_11111 ) begin
+			$display( "OK   : RAM Mode=1 BANK2=#31 MA=%02X", scc_ma );
+		end
+		else begin
+			$display( "ERROR: RAM Mode=1 BANK2=#31 MA=%02X", scc_ma );
+			error_count++;
+		end
+
+		//	RAM Mode = 1, BANK1 = #63: SCC register window at 7800h-7FFFh, PAN at 7900h-7904h
+		write_mem( 16'h4FFD, 8'h3F );
+		check_romcs( "RAM Mode=1 BANK1=#63 7800h is SCC", 16'h7800, 1'b1 );
+		check_romcs( "RAM Mode=1 BANK1=#63 6000h unconnected", 16'h6000, 1'b1 );
+		check_mem( "RAM Mode=1 BANK1 wave RAM A[0]", 16'h7800, 8'h5A );
+		write_mem( 16'h7800, 8'h21 );
+		write_mem( 16'h7804, 8'h25 );
+		write_mem( 16'h7900, 8'd10 );
+		write_mem( 16'h7901, 8'd20 );
+		write_mem( 16'h7902, 8'd30 );
+		write_mem( 16'h7903, 8'd40 );
+		write_mem( 16'h7904, 8'd50 );
+		check_pan( "RAM Mode=1 BANK1 PAN write", 10, 20, 30, 40, 50 );
+		check_mem( "RAM Mode=1 BANK1 wave RAM A[0] kept", 16'h7800, 8'h21 );
+		check_mem( "RAM Mode=1 BANK1 wave RAM A[4] kept", 16'h7804, 8'h25 );
+		write_mem( 16'h7905, 8'h26 );
+		check_mem( "RAM Mode=1 7905h mirrors 7805h", 16'h7805, 8'h26 );
+		check_pan( "RAM Mode=1 7905h does not change PAN", 10, 20, 30, 40, 50 );
+
+		//	Both windows access the same SCC and PAN registers.
+		write_mem( 16'h4FFE, 8'h3F );
+		check_mem( "both windows share wave RAM", 16'h9800, 8'h21 );
+		write_mem( 16'h7880, 8'h34 );
+		write_mem( 16'h7881, 8'h02 );
+		if( u_dut.u_ikascc.IKASCC_SYNC_MODE.u_player_main.u_ctrl_ch1.freq !== 12'h234 ) begin
+			$display( "ERROR: RAM Mode=1 BANK1 frequency write" );
+			error_count++;
+		end
+		write_mem( 16'h9900, 8'd255 );
+		check_pan( "BANK2 changes shared PAN", 255, 20, 30, 40, 50 );
+		check_sound( "shared PAN A right", 8'sd100, 8'sd0, 8'sd0, 8'sd0, 8'sd0, 11'sd0, 11'sd100 );
+		write_mem( 16'h7900, 8'd1 );
+		check_sound( "shared PAN A left", 8'sd100, 8'sd0, 8'sd0, 8'sd0, 8'sd0, 11'sd100, 11'sd0 );
+		write_mem( 16'h7900, 8'd10 );
+
+		//	Back to RAM Mode = 0 (BANK2 = #63 by 9000h): BANK1 = #63 is not a window.
 		write_mem( 16'h4FFB, 8'h00 );
-		check_mem( "RAM Mode=1 PAN write did not reach 9800h", 16'h9800, 8'h40 );
+		write_mem( 16'h9000, 8'h3F );
+		check_mem( "RAM Mode=0 9800h shows wave RAM written via 7800h", 16'h9800, 8'h21 );
+		write_mem( 16'h7900, 8'd99 );
+		check_pan( "RAM Mode=0 7900h ignored", 10, 20, 30, 40, 50 );
+		check_romcs( "RAM Mode=0 BANK1=#63 7900h unconnected", 16'h7900, 1'b1 );
+		check_romcs( "RAM Mode=0 BANK2=#63 8000h unconnected", 16'h8000, 1'b1 );
+		write_mem( 16'h9900, 8'd1 );
+		write_mem( 16'h9901, 8'd1 );
+		write_mem( 16'h9902, 8'd1 );
+		write_mem( 16'h9903, 8'd1 );
 		write_mem( 16'h9904, 8'd200 );
 		check_pan( "write after back to RAM Mode=0", 1, 1, 1, 1, 200 );
 		write_mem( 16'h9904, 8'd1 );
-
 		//	Close SCC register window: PAN must not change.
 		write_mem( 16'h9000, 8'h00 );
 		write_mem( 16'h9900, 8'd255 );

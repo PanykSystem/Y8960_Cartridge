@@ -68,16 +68,16 @@ module tb ();
 	localparam	[7:0]	c_sysctrl_io	= 8'h45;
 	localparam	[7:0]	c_unmapped_io	= 8'h00;
 
-	//	Memory Mapped I/O addresses (7FE0h-7FFFh window, no mirror)
+	//	Memory Mapped I/O addresses (7FF0h-7FFFh window, no mirror)
 	localparam	[15:0]	c_ssg_mio		= 16'h7FF0;
 	localparam	[15:0]	c_ssg_mio_mirror = 16'h3FF0;	//	mirror removed -> no decode
 	localparam	[15:0]	c_opl2_mio		= 16'h7FF2;
 	localparam	[15:0]	c_opl2_old_mio	= 16'h7FEE;	//	removed 2nd MSX-AUDIO window (falls back to scc)
 	localparam	[15:0]	c_opll_mio		= 16'h7FF4;
 	localparam	[15:0]	c_io_en1_mio	= 16'h7FF6;
-	localparam	[15:0]	c_io_en1_odd	= 16'h7FF7;		//	mixer volume register (handled by msx_slot) -> scc_cs here
+	localparam	[15:0]	c_io_en1_odd	= 16'h7FF7;		//	mixer volume is handled by msx_slot
 	localparam	[15:0]	c_io_en2_mio	= 16'h7FFF;
-	localparam	[15:0]	c_io_en2_even	= 16'h7FFE;		//	unassigned -> scc_cs
+	localparam	[15:0]	c_io_en2_even	= 16'h7FFE;		//	volume is handled by msx_slot
 	localparam	[15:0]	c_normal_mem	= 16'h8000;
 
 	//	Chip select bit order: { timer, opll, opl2, ssg, scc, sysctrl }
@@ -220,6 +220,7 @@ module tb ();
 		actual_cs = { bus_timer_cs, bus_opll_cs, bus_opl2_cs, bus_ssg_cs, bus_scc_cs, bus_sysctrl_cs };
 		check( $sformatf( "%s (address=%04h expected_cs=%07b actual_cs=%07b)", name, address, expected_cs, actual_cs ),
 			actual_cs == expected_cs );
+		check( $sformatf( "%s bus_ready == 1", name ), bus_ready == 1'b1 );
 		idle();
 	endtask
 
@@ -299,8 +300,13 @@ module tb ();
 		check_decode( "opl2 old mio",    c_opl2_old_mio,   1'b0, 1'b1, c_cs_scc );
 		check_decode( "opll mio",        c_opll_mio,       1'b0, 1'b1, c_cs_opll );
 		check_cs_only( "io_en1 mio",     c_io_en1_mio,     1'b0, 1'b1, c_cs_none );	//	io_en_cs is not exposed as a module cs
-		check_decode( "7FF7h->scc",      c_io_en1_odd,     1'b0, 1'b1, c_cs_scc );
-		check_decode( "7FFEh->scc",      c_io_en2_even,    1'b0, 1'b1, c_cs_scc );
+		check_cs_only( "7FF7h no SCC",   c_io_en1_odd,     1'b0, 1'b1, c_cs_none );
+		check_cs_only( "7FFEh no SCC",   c_io_en2_even,    1'b0, 1'b1, c_cs_none );
+		for( int address = 'h7FFB; address <= 'h7FFD; address++ ) begin
+			check_cs_only( "reserved write ignored", address, 1'b0, 1'b1, c_cs_none );
+		end
+		check_decode( "7FEFh write->scc", 16'h7FEF, 1'b0, 1'b1, c_cs_scc );
+		check_decode( "7FF0h write->ssg",  16'h7FF0, 1'b0, 1'b1, c_cs_ssg );
 		check_cs_only( "io_en2 mio",     c_io_en2_mio,     1'b0, 1'b1, c_cs_none );	//	io_en_cs is not exposed as a module cs
 
 		//	io_en1/io_en2 exact addresses select the internal enabler (bus_ready
