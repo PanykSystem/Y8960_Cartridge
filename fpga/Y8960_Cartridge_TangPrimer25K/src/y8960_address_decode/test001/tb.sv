@@ -268,14 +268,22 @@ module tb ();
 		//	Before enabling the I/O ports, every I/O access must be rejected
 		//	(no module selected, bus_ready stays low).
 		// --------------------------------------------------------------------
-		check_decode( "ssg io (default enabled)", { 8'h00, c_ssg1_io }, 1'b1, 1'b1, c_cs_ssg );
-		check_decode( "opll io (default enabled)", { 8'h00, c_opll_io }, 1'b1, 1'b1, c_cs_opll );
+		check_decode( "ssg io (default disabled)",  { 8'h00, c_ssg1_io }, 1'b1, 1'b1, c_cs_none );
+		check_decode( "opll io (default disabled)", { 8'h00, c_opll_io }, 1'b1, 1'b1, c_cs_none );
 		check_decode( "opl2 io (disabled)",   { 8'h00, c_opl2_io }, 1'b1, 1'b1, c_cs_none );
 		check_decode( "timer io (disabled)",  { 8'h00, c_timer1_io }, 1'b1, 1'b1, c_cs_none );
 		check_decode( "opm io (disabled)",    { 8'h00, c_opm_io }, 1'b1, 1'b1, c_cs_none );
 		//	sysctrl and undecoded I/O ports do not depend on the enabler
 		check_decode( "sysctrl io",           { 8'h00, c_sysctrl_io },   1'b1, 1'b1, c_cs_sysctrl );
 		check_decode( "unmapped io",          { 8'h00, c_unmapped_io },  1'b1, 1'b1, c_cs_none );
+
+		//	memory_io_en = 0 (RAM Mode = 1 and BANK1 = RAM bank): 7FF0h-7FFFh is plain memory
+		check_decode( "7FF6h with memory_io_en=0", c_io_en1_mio, 1'b0, 1'b1, c_cs_scc );
+		check_decode( "7FFFh with memory_io_en=0", c_io_en2_mio, 1'b0, 1'b1, c_cs_scc );
+		check_decode( "7FF0h with memory_io_en=0", 16'h7FF0, 1'b0, 1'b1, c_cs_scc );
+		check_decode( "7FFBh with memory_io_en=0", c_opm_adr_mio, 1'b0, 1'b1, c_cs_scc );
+		check_decode( "opll io (still disabled)", { 8'h00, c_opll_io }, 1'b1, 1'b1, c_cs_none );
+		check_decode( "ssg io (still disabled)",  { 8'h00, c_ssg1_io }, 1'b1, 1'b1, c_cs_none );
 
 		// --------------------------------------------------------------------
 		//	Enable every I/O port through the memory mapped enabler registers.

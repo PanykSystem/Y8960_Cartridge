@@ -54,6 +54,7 @@ module tb ();
 	wire			w_bus_opll_cs;
 	wire			w_bus_opl2_cs;
 	reg		[2:0]	mio_seen;
+	reg				checking_plain;
 	reg				checking_mio;
 	wire			w_bus_scc_cs;
 	wire			w_bus_scc_ready;
@@ -124,7 +125,8 @@ module tb ();
 		.master_volume			(							)
 	);
 
-	assign w_mixer_reg_en = 1'b1;
+	//	Same as the top: MMIO is visible when RAM Mode = 0 or BANK1 is a ROM bank (#0-#15).
+	assign w_mixer_reg_en = ~w_scc_ma[5] | ~w_scc_ma[4];
 
 	y8960_address_decode u_address_decode (
 		.clk					( clk_42m					),
@@ -291,6 +293,9 @@ module tb ();
 	int				cpu_access_count;
 	int				cpu_write_count;
 	always @( posedge clk_42m ) begin
+		if( checking_plain ) begin
+			mio_seen <= mio_seen | { w_bus_ssg_cs, w_bus_opll_cs, w_bus_opl2_cs };
+		end
 		if( checking_mio ) begin
 			mio_seen <= mio_seen | { w_bus_ssg_cs, w_bus_opll_cs, w_bus_opl2_cs };
 			if( w_bus_scc_cs ) begin
@@ -493,6 +498,69 @@ module tb ();
 		repeat( 200 ) @( posedge clk_42m );
 	endtask
 
+	//	RAM Mode = 1 and BANK1 = #16-#31 (or its mirror / #63): 7FF0h-7FFFh is not MMIO.
+	task check_mio_disabled( input [5:0] bank );
+		int count, waits;
+		reg [7:0] volumes [0:5];
+		reg [4:0] enables;
+		logic [7:0] rdata;
+		volumes[0] = u_msx_slot.ff_ssg_volume;
+		volumes[1] = u_msx_slot.ff_opll_volume;
+		volumes[2] = u_msx_slot.ff_opl2_volume;
+		volumes[3] = u_msx_slot.ff_scc_volume;
+		volumes[4] = u_msx_slot.ff_opm_volume;
+		volumes[5] = u_msx_slot.ff_master_volume;
+		enables = { u_address_decode.ff_timer_io_en, u_address_decode.ff_opll_io_en, u_address_decode.ff_opl2_io_en,
+					u_address_decode.ff_ssg_io_en, u_address_decode.ff_opm_io_en };
+		count = cpu_write_count;
+		mio_seen = 3'b000;
+		checking_plain = 1'b1;
+		for( int offset = 0; offset < 16; offset++ ) begin
+			mem_write( 16'h7FF0 + offset, 8'h40 + offset + bank, waits );
+		end
+		checking_plain = 1'b0;
+		wait_idle();
+		if( mio_seen !== 3'b000 ) begin
+			$display( "[ERROR] RAM bank #%0d: 7FF0h-7FFFh selected a sound chip (%03b)", bank, mio_seen );
+			error_count++;
+		end
+		if( volumes[0] !== u_msx_slot.ff_ssg_volume || volumes[1] !== u_msx_slot.ff_opll_volume ||
+			volumes[2] !== u_msx_slot.ff_opl2_volume || volumes[3] !== u_msx_slot.ff_scc_volume ||
+			volumes[4] !== u_msx_slot.ff_opm_volume || volumes[5] !== u_msx_slot.ff_master_volume ) begin
+			$display( "[ERROR] RAM bank #%0d: volume registers changed", bank );
+			error_count++;
+		end
+		if( enables !== { u_address_decode.ff_timer_io_en, u_address_decode.ff_opll_io_en, u_address_decode.ff_opl2_io_en,
+						  u_address_decode.ff_ssg_io_en, u_address_decode.ff_opm_io_en } ) begin
+			$display( "[ERROR] RAM bank #%0d: I/O enablers changed", bank );
+			error_count++;
+		end
+		if( bank == 6'd63 ) begin
+			//	SCC register window: no SRAM write, written to the SCC mode register mirror
+			if( cpu_write_count != count ) begin
+				$display( "[ERROR] BANK1=#63: SRAM was written" );
+				error_count++;
+			end
+			if( u_scc.u_ikascc.IKASCC_SYNC_MODE.u_player_main.test !== 8'h40 + 8'd15 + 8'd63 ) begin
+				$display( "[ERROR] BANK1=#63: 7FFFh did not reach SCC (test=%02X)", u_scc.u_ikascc.IKASCC_SYNC_MODE.u_player_main.test );
+				error_count++;
+			end
+			mem_write( 16'h7FEF, 8'h00, waits );
+			wait_idle();
+		end
+		else begin
+			if( cpu_write_count - count != 16 ) begin
+				$display( "[ERROR] RAM bank #%0d: SRAM writes=%0d", bank, cpu_write_count - count );
+				error_count++;
+			end
+			for( int offset = 0; offset < 16; offset++ ) begin
+				check_sram( { 1'b0, bank[4:0], 13'h1FF0 } + offset, 8'h40 + offset + bank, "RAM 7FF0h-7FFFh write" );
+			end
+			check_read( 16'h7FF0, { 1'b0, bank[4:0], 13'h1FF0 }, "RAM 7FF0h read" );
+			check_read( 16'h7FFF, { 1'b0, bank[4:0], 13'h1FFF }, "RAM 7FFFh read" );
+		end
+	endtask
+
 	task check_mio_bank( input bit ram_mode, input [5:0] bank );
 		int count, waits;
 		reg [7:0] saved_sram [0:15];
@@ -514,6 +582,11 @@ module tb ();
 		end
 		else if( ram_mode && bank[4] ) begin
 			check_sram( { 1'b0, bank[4:0], 13'h1FEF }, 8'h00, "7FEFh RAM boundary" );
+		end
+
+		if( ram_mode && bank[4] ) begin
+			check_mio_disabled( bank );
+			return;
 		end
 
 		for( int offset = 0; offset < 16; offset++ ) begin
@@ -593,6 +666,7 @@ module tb ();
 		cpu_access_count	= 0;
 		cpu_write_count		= 0;
 		checking_mio		= 0;
+		checking_plain		= 0;
 		mio_seen			= 0;
 
 		for( i = 0; i < 512 * 1024; i++ ) begin

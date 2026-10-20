@@ -1170,3 +1170,23 @@
 - 仕様書の MMIO 行の注記に「RAM Mode=0 または BANK1 が ROM のときのみ」が残っていれば、常時有効の仕様に合わせて更新が必要。
 - 23:12 ユーザー報告: 合成は問題なく完了し、FPGA への書き込みまで完了。音を出しての実機確認は後日（未確認）。
 - 次回: 実機で OPM の発音、7Eh/7Fh（7FFFh bit2=1）と 7FFBh/7FFCh からの書き込み、ステータス読み出し、タイマー割り込み、7FFDh の音量を確認する。
+
+## 2026-10-21 朝: メモリマップド I/O の出現条件と I/O Enabler 初期値の修正
+- ユーザー指示（仕様書 O11～O26 の注記に一致。10/20 夜の「常時有効」は取り消し）:
+  - 7FF0h～7FFFh のメモリマップド I/O は、RAM Mode=0 のとき、または RAM Mode=1 で BANK1 が ROM バンク (#0～#15) のときだけ出現する。
+  - RAM Mode=1 で BANK1 が #16～#31 のときは、その RAM バンクの 7FF0h～7FFFh を通常どおり読み書きできる。
+  - 7FF6h/7FFFh の初期値は 0 で、TIMER/SSG/OPLL/OPL2/OPM の I/O はすべて無効で起動する。ADPCM は OPL2 の I/O（C0h-C1h）経由なので OPL2 の Enabler で制御される。
+- 実装:
+  - トップ: w_mixer_reg_en = ~w_scc_ma[5] | ~w_scc_ma[4] に戻した（10/20 夜より前の式）。scc_ma は {RAM Mode, 現在のアドレスで選ばれた BANK#[4:0]} で、アドレスに対して組み合わせ回路で出力される。
+    - バンクレジスタの下位5ビットで判定するため、#32～#47（#0～#15 のミラー）は ROM 扱いで MMIO が出現する。
+    - #48～#62（#16～#30 のミラー）と #63 は出現しない。BANK1=#63（SCC）では、7FF0h～7FFFh への書き込みは SCC 側（モードレジスタのミラー）へ届く。
+  - y8960_address_decode.v: ff_opll_io_en/ff_ssg_io_en の初期値とリセット値を 1→0 に変更した。
+- 検証（ModelSim、すべて PASS）:
+  - y8960_address_decode/test001: 全 I/O の初期無効と、memory_io_en=0 のとき 7FF0h～7FFFh が SCC/メモリ側へ行き、Enabler が変わらないことを確認。
+  - ikascc_patch/test001: テストベンチの w_mixer_reg_en をトップと同じ式にした。RAM Mode=0/1 × BANK1=#0～#63 の全組み合わせで次を確認した。
+    - MMIO が有効なバンクでは従来どおりの動作になる。
+    - RAM バンク（#16～#31、#48～#62）では、SRAM への16バイトの書き込みと読み返しができ、音源 cs・音量・Enabler が変化しない。
+    - #63 では SRAM へ書き込まれず、SCC へ届く。
+  - msx_slot/test001・test002、ikascc_patch/test002、トップ test001。
+- 注意: これまで OPLL/SSG の I/O は起動時に有効だった。今後は BIOS（CALL MUSIC など）や利用ソフトが 7FF6h/7FFFh で有効化する必要がある。リポジトリ内にはこのレジスタに書き込むソフトは見当たらない。
+- 合成・実機確認は未実施。

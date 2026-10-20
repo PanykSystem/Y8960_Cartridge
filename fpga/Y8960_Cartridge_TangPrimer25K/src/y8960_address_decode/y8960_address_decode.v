@@ -99,7 +99,7 @@ module y8960_address_decode(
 	localparam		c_opl2_io				= 8'hC0;	//	MSX-AUDIO: C0h-C1h
 	localparam		c_opm_io				= 8'h7E;	//	OPM      : 7Eh-7Fh
 	localparam		c_sysctrl_io			= 4'h4;		//	SYSCTRL  : 40h-4Fh
-	//	Memory interface is always connect.
+	//	Memory mapped I/O is connected only while memory_io_en = 1.
 	localparam		c_ssg_mio				= 5'h10;	//	SSG         : 7FF0h-7FF1h
 	localparam		c_opl2_mio				= 5'h12;	//	MSX-AUDIO   : 7FF2h-7FF3h
 	localparam		c_opll_mio				= 5'h14;	//	MSX-MUSIC   : 7FF4h-7FF5h
@@ -109,9 +109,9 @@ module y8960_address_decode(
 	localparam		c_io_en2				= 5'h1F;	//	I/O Enabler2: 7FFFh
 
 	reg 			ff_timer_io_en		= 1'b0;
-	reg 			ff_opll_io_en		= 1'b1;
+	reg 			ff_opll_io_en		= 1'b0;
 	reg 			ff_opl2_io_en		= 1'b0;
-	reg 			ff_ssg_io_en		= 1'b1;
+	reg 			ff_ssg_io_en		= 1'b0;
 	reg 			ff_opm_io_en		= 1'b0;
 
 	// --------------------------------------------------------------------
@@ -194,9 +194,9 @@ module y8960_address_decode(
 	always @( posedge clk ) begin
 		if( !reset_n ) begin
 			ff_timer_io_en		<= 1'b0;
-			ff_opll_io_en		<= 1'b1;
+			ff_opll_io_en		<= 1'b0;
 			ff_opl2_io_en		<= 1'b0;
-			ff_ssg_io_en		<= 1'b1;
+			ff_ssg_io_en		<= 1'b0;
 			ff_opm_io_en		<= 1'b0;
 		end
 		else if( w_mio_io_en1_cs ) begin
