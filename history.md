@@ -1190,3 +1190,111 @@
   - msx_slot/test001・test002、ikascc_patch/test002、トップ test001。
 - 注意: これまで OPLL/SSG の I/O は起動時に有効だった。今後は BIOS（CALL MUSIC など）や利用ソフトが 7FF6h/7FFFh で有効化する必要がある。リポジトリ内にはこのレジスタに書き込むソフトは見当たらない。
 - 合成・実機確認は未実施。
+
+## 2026-10-26 夕方: 7FFFh（I/O Enabler2）の読み出し対応
+- 仕様変更（互換性向上のため）: 7FFFh を WO から RW にする。読み出せるのは、書き込みが有効な条件（RAM Mode=0、または BANK1 が ROM バンク #0～#15）のときだけ。
+- ユーザーの決定: 未定義ビット bit6～bit3 は 0 として読む。
+- 読み出し値: { TIMER, 0000, OPM, SSG, OPL2 }
+- 実装:
+  - y8960_address_decode.v:
+    - bus_rdata/bus_rdata_en 出力を追加。
+    - memory_io_en=1 で 7FFFh を読み出したときは、デコーダ自身が ready を返し、次のクロックで rdata_en と読み出し値を出す。このアクセスは SCC/SRAM へ回さない（w_mem_plain から除外）。
+    - それ以外のときの rdata は FFh（各音源の rdata と AND で合成するため）。
+    - memory_io_en=0 の場合は、従来どおり SCC/SRAM（RAM バンクの内容、BANK1=#63 なら SCC 側）を読む。
+    - 7FF0h～7FFEh の読み出しは従来どおりメモリ側を読む。
+  - トップ: w_bus_decode_rdata/_en を rdata の AND 合成と rdata_en の OR 合成に追加した。
+- 検証（ModelSim、すべて PASS）:
+  - y8960_address_decode/test001: リセット値 00h、各種書き込み値の読み返し（未定義ビットが 0 になること）、module cs が立たないこと、ready、rdata_en が1クロックで解除されること、memory_io_en=0 のときは SCC 側へ回ることを確認。
+  - ikascc_patch/test001: RAM Mode=0/1 × BANK1=#0～#63 の全組み合わせで、MMIO が有効なバンクでは 7FFFh が 07h と読め、SRAM アクセスが発生しないことを確認。RAM バンクでは従来どおり SRAM の内容が読めることを確認。
+  - msx_slot/test002、ikascc_patch/test002、トップ test001。
+- 合成・実機確認は未実施。
+
+## 2026-10-26 夜: Windows 更新ツールを Y8960 / TangPrimer25K 向けに移植
+- ユーザーが tool_for_windows にコピーした V9968 向けツールを変更した。FPGA RTL と仕様書は今回変更していない。
+- GOWIN Programmer V1.9.12.03 の --help で、69 が「exFlash Erase,Program,Verify thru GAO-Bridge Arora V」であることを確認。対象 FPGA はプロジェクトと同じ GW5A-25A、JTAG は既存ツールと同じ 2.5MHz。
+- 方針の確認:
+  - Config と BIOS のバージョンが同じ 64KB 消去ブロックにある。CLI の公開操作では Flash を読み出して他方のバージョンを保存できないため、MSX 版と同じ個別更新をそのまま移植することはできない。
+  - ユーザーが「Config と BIOS の両ファイルを指定し、両方を更新する方式」を選択した。両ファイルを必須にし、両本体の消去・書き込み・ベリファイに成功した後だけ、両バージョンをまとめて書き込む。
+- 実装:
+  - プロジェクト・名前空間・実行ファイル・表示・CLI パス保存先を Y8960UpdWin に変更。
+  - Config: シグネチャ Y8960_TP25K_CARTRIDGE、ヘッダ 48 バイト、本体 1～7D0000h バイト、書き込み先 000000h。
+  - BIOS: シグネチャ Y8960_BIOS_IMAGE、ヘッダ 48 バイト、本体は正確に 128KB、書き込み先 7E0000h。リポジトリの tool/bios/MSXSSE.ROM がヘッダ付きの入力ファイル。
+  - バージョンブロック: 7D0000h～7DFFFFh を FFh で初期化し、7DFF00h に Config、7DFF10h に BIOS の各16バイトを配置。
+  - 本体またはバージョンの失敗後は後続処理・再起動を行わない。本体の失敗時はバージョンを書き換えない。途中まで更新された Flash のロールバックはできない旨を説明書に記載。
+  - 接続確認と書き込み直前の再スキャンで GW5A-25A を要求し、型番なし・他型番混在は拒否する。
+  - 成功時は --run 1 で再起動。再起動だけ失敗した場合は書き込み成功と区別して USB 再接続を案内する。
+  - readme とビルドスクリプト・gitignore を更新。旧 V9968 配布 exe は削除し、Y8960UpdWin.exe をビルド出力した。
+- 検証:
+  - VS2022 MSBuild の Release ビルド成功。
+  - tests/Y8960UpdWin.Tests.csproj: 偽 CLI のみで 89 チェック PASS。実機へのアクセスは行っていない。
+  - 実際の配布 Config/BIOS の読み込み、シグネチャ・サイズ境界、ヘッダ除去、両バージョンの配置、GUI 操作からの実行順・アドレス・--run 69 を検証。
+  - Config/BIOS/バージョンそれぞれの失敗での中断、バージョン保護、直前スキャン失敗、再起動だけの失敗通知も検証。
+- 実機での Arora V GAO-Bridge 書き込みは未検証。元の V9968 ツールの実機確認結果は引き継がない。
+
+### 追記: 実機接続時に検出失敗 → 修正
+- 現象: TangPrimer25K 接続中でも「Y8960 Cartridge is not detected」。
+- 原因: programmer_cli --scan は 1 台のデバイスに対し IDCODE 互換の全型番を
+  `Name: GW5A-25A GW5A-25B GW5AS-25A GW5AS-25B GW5AR-25A GW5AR-25B (One of them)` と列挙する。
+  判定が「型番がちょうど 1 個」を要求していたため拒否していた。
+- 修正 (ProgrammerCli.IsTargetDevice):
+  - GW5A-25A を含むこと。
+  - 列挙された全型番が GW5A/GW5AS/GW5AR-25A/B 系であること。
+  - "N device(s) found" がある場合は N=1 であること。
+- テスト: 実機の scan 出力を受理するケースと、2 台検出・GW5A-25A なしを拒否するケースを追加。偽 CLI の scan 出力も実機形式に変更。92 チェック PASS。build.bat 成功。
+
+### 追記: Arora V GAO-Bridge の選択にパッケージ名を指定
+- ユーザーの実機ログでは検出に成功したが、操作 69 の開始時に
+  `Error: No gao bridge files found for this development board` が発生した。
+  CLI の終了コードは 0 だったが、出力の Error を検出して後続処理を中断できている。
+- インストール済み Programmer の `aroravgaobridge.json` と FPGA プロジェクトの部品型番を確認。
+  TangPrimer25K のパッケージ付き型番 `GW5A-25A-MBGA121N` は
+  `0001281B_S.fs` に対応し、ブリッジファイルも存在する。
+- 書き込み時の `--device` を `GW5A-25A` から `GW5A-25A-MBGA121N` に変更。
+  検出判定と再起動は従来の型番指定を維持する。
+- Config・BIOS・バージョンの全書き込みでパッケージ名が付くことと、
+  終了コード 0 のブリッジエラーを失敗と扱うことをテスト。93 チェック PASS。
+  Release ビルド成功、配布 EXE とビルド出力の SHA256 一致も確認。
+- 指定された `tool\config\Y8960CFG.BIN` と `tool\bios\MSXSSE.ROM` の読み込み検査は成功。
+  実機への書き込みは実行していない。修正版での実機確認はユーザーに依頼する。
+
+### 追記: GAO-Bridge 操作をやめ、操作 56 (C Bin, ブリッジなし) に変更
+- パッケージ名付き `--device GW5A-25A-MBGA121N` は CLI の argparse で拒否された（選択肢は GW5A-25A 等のみ）。
+- CLI の内部文字列を調査した結果、`get_gao_bridge_fs` は `--fsFile` の .fs ヘッダ
+  `//Device-package:` からブリッジを選んでいた。.bin にはヘッダがないため失敗する。
+  操作 67～69 は .fs ビットストリーム専用。
+- ユーザー了承のうえ、実機で読み出し専用の検証を実施（消去・書き込みなし。最後に --run 1 で再起動）。
+  - ヘッダ付き .fs を作ると GAO-Bridge は読み込めた。
+    しかし操作 67 (ブリッジ経由ベリファイ) は、GOWIN 生成の impl\pnr .fs でもページ 0 から不一致。
+  - 操作 66 (ブリッジなしベリファイ) は Flash を読めた。
+    impl\pnr .fs はページ 5、tool\config .fs はページ 4 で不一致。両者の最初の差分は 1197 バイト目 (ページ 4)。
+    よって Flash には別ビルドが入っている模様で、ページ単位の生ビット比較が正しく動いていると判断。
+  - .fs のビット列は .bin とバイト単位で完全一致することを確認。
+- 書き込みを `--run 56` (exFlash C Bin Erase,Program,Verify Arora V)、`--device GW5A-25A` に変更。
+  V9968 版の `--run 39` も C Bin 系だった。
+- 操作 56 での実機書き込みは未検証。ユーザーがツールで確認する。
+
+### 追記: 操作 56 の失敗を受け、通常の exFlash 操作 54 に変更
+- ユーザーのログでは、操作 56 が終了アドレス 0、約 0.44 秒で
+  `Error: Program and Verify Flash Failed!` を返した。終了コードは 0。
+- ユーザーに USB 切断を依頼してオフライン SVF 生成を試したが、操作 56 は
+  `Error: Unsupported.` となり、書き込みデータの検証には使えなかった。
+  `--acFile` / `--mcuFile` 単独も今回の操作では入力として受理されず、
+  これらを代替引数にする根拠は得られなかった。
+- USB 再接続と読み出し専用テストの許可を得て、操作 66 で正負対照を実施。
+  - Config 本体の先頭 1024 バイトを .bin で渡すと `Verify Flash successfully.`。
+  - 同じデータを .fs にしても成功。
+  - .fs の 512 バイト目を 1 ビット変更した負対照はページ 2 で失敗。
+  - .binx は正常な代替入力と確認できなかったため採用しない。
+  - テスト後は `--run 1` の成功を確認。消去・Flash 書き込みは実行していない。
+- 上記により、先の「.bin が正しく解釈されない」という推測は訂正する。
+  正負対照で確認したのは先頭範囲の入力解釈と読み出しであり、
+  全領域の一致や GAO-Bridge 不一致の根本原因は断定しない。
+  操作 56 で処理長が 0 となる内部原因も未確定。
+- ユーザー了承のうえ、通常のビットストリーム経路の
+  `--run 54` (exFlash Erase,Program,Verify Arora V) に変更。
+  `--device GW5A-25A`、`--fsFile`、ヘッダ除去済みのデータ、各アドレス、書き込み順は維持。
+- 偽 CLI を操作 54 の検査に対応させ、Config 失敗時は今回と同じエラー文と
+  終了コード 0 を返すよう変更。後続書き込みの中断と成功扱いしないことを確認。
+  94 チェック PASS、Release ビルド成功、配布 EXE とビルド出力の SHA256 一致。
+- 操作 54 による Config・BIOS・バージョンの実機書き込みは未検証。
+  ユーザーが修正版ツールで確認する。

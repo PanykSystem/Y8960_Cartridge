@@ -50,6 +50,8 @@ module tb ();
 	wire	[7:0]	w_bus_rdata;
 	wire			w_bus_rdata_en;
 	wire			w_mixer_reg_en;
+	wire	[7:0]	w_bus_decode_rdata;
+	wire			w_bus_decode_rdata_en;
 	wire			w_bus_ssg_cs;
 	wire			w_bus_opll_cs;
 	wire			w_bus_opl2_cs;
@@ -137,6 +139,8 @@ module tb ();
 		.bus_valid				( w_bus_valid				),
 		.bus_ready				( w_bus_ready				),
 		.bus_wdata				( w_bus_wdata				),
+		.bus_rdata				( w_bus_decode_rdata		),
+		.bus_rdata_en			( w_bus_decode_rdata_en		),
 		.bus_timer_cs			(							),
 		.bus_opll_cs			( w_bus_opll_cs				),
 		.bus_opl2_cs			( w_bus_opl2_cs				),
@@ -155,8 +159,8 @@ module tb ();
 		.led					(							)
 	);
 
-	assign w_bus_rdata		= w_bus_scc_rdata & w_bus_scc_bank_rdata;
-	assign w_bus_rdata_en	= w_bus_scc_rdata_en | w_bus_scc_bank_rdata_en;
+	assign w_bus_rdata		= w_bus_scc_rdata & w_bus_scc_bank_rdata & w_bus_decode_rdata;
+	assign w_bus_rdata_en	= w_bus_scc_rdata_en | w_bus_scc_bank_rdata_en | w_bus_decode_rdata_en;
 
 	scc u_scc (
 		.reset_n				( w_reset_n					),
@@ -620,6 +624,16 @@ module tb ();
 			u_address_decode.ff_opm_io_en !== 1'b1 ) begin
 			$display( "[ERROR] MMIO I/O enablers did not update" );
 			error_count++;
+		end
+		begin
+			logic [7:0] rdata;
+			count = cpu_access_count;
+			mem_read( 16'h7FFF, rdata, waits );
+			wait_idle();
+			if( rdata !== 8'h07 || cpu_access_count != count ) begin
+				$display( "[ERROR] 7FFFh read = %02X (expected 07), SRAM accesses=%0d", rdata, cpu_access_count - count );
+				error_count++;
+			end
 		end
 		if( ram_mode && bank == 6'd63 &&
 			u_scc.u_ikascc.IKASCC_SYNC_MODE.u_player_main.test !== 8'h00 ) begin

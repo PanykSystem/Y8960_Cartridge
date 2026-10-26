@@ -108,6 +108,8 @@ module tb ();
 	wire			bus_ssg_cs;
 	wire			bus_scc_cs;
 	wire			bus_opm_cs;
+	wire	[7:0]	bus_rdata;
+	wire			bus_rdata_en;
 	wire			bus_sysctrl_cs;
 	reg				memory_io_en;
 	wire		[3:0]	led;
@@ -125,6 +127,8 @@ module tb ();
 		.bus_valid				( bus_valid				),
 		.bus_ready				( bus_ready				),
 		.bus_wdata				( bus_wdata				),
+		.bus_rdata				( bus_rdata				),
+		.bus_rdata_en			( bus_rdata_en			),
 		.bus_timer_cs			( bus_timer_cs			),
 		.bus_opll_cs			( bus_opll_cs			),
 		.bus_opl2_cs			( bus_opl2_cs			),
@@ -244,6 +248,25 @@ module tb ();
 		@( posedge clk );
 	endtask
 
+	//	Read 7FFFh (I/O Enabler2) and check the read data
+	task check_io_en2_read(
+		input string	name,
+		input	[7:0]	expected
+	);
+		access( c_io_en2_mio, 1'b0, 1'b0, 8'h00 );
+		check( $sformatf( "%s no module cs", name ),
+			{ bus_timer_cs, bus_opll_cs, bus_opl2_cs, bus_ssg_cs, bus_scc_cs, bus_opm_cs, bus_sysctrl_cs } == c_cs_none );
+		check( $sformatf( "%s bus_ready == 1", name ), bus_ready == 1'b1 );
+		@( posedge clk );
+		bus_valid	= 1'b0;
+		#1;
+		check( $sformatf( "%s rdata=%02h (expected %02h)", name, bus_rdata, expected ),
+			bus_rdata_en == 1'b1 && bus_rdata == expected );
+		@( posedge clk );
+		#1;
+		check( $sformatf( "%s rdata_en released", name ), bus_rdata_en == 1'b0 && bus_rdata == 8'hFF );
+	endtask
+
 	// --------------------------------------------------------------------
 	//	Test bench
 	// --------------------------------------------------------------------
@@ -290,8 +313,10 @@ module tb ();
 		//	This also exercises the mio address decode for c_io_en1 / c_io_en2.
 		// --------------------------------------------------------------------
 		memory_io_en	= 1'b1;
+		check_io_en2_read( "7FFFh read (reset value)", 8'h00 );
 		write_io_enabler( c_io_en1_mio, 8'b0000_0001 );	//	opll_io_en
 		write_io_enabler( c_io_en2_mio, 8'b1000_0111 );	//	opl2, ssg, opm, timer
+		check_io_en2_read( "7FFFh read (all enabled)", 8'b1000_0111 );
 
 		// --------------------------------------------------------------------
 		//	I/O port decode (now enabled)
@@ -338,6 +363,13 @@ module tb ();
 		check( "io_en2 mio bus_ready == 1", bus_ready == 1'b1 );
 		idle();
 
+		write_io_enabler( c_io_en2_mio, 8'b0111_1110 );	//	unused bits are read as 0
+		check_io_en2_read( "7FFFh read (ssg, opm)", 8'b0000_0110 );
+		write_io_enabler( c_io_en2_mio, 8'b1000_0001 );
+		check_io_en2_read( "7FFFh read (timer, opl2)", 8'b1000_0001 );
+		check_decode( "7FFEh read->scc", 16'h7FFE, 1'b0, 1'b0, c_cs_scc );
+		check_decode( "7FF6h read->scc", c_io_en1_mio, 1'b0, 1'b0, c_cs_scc );
+
 		//	7FFFh bit2=0 disables only the OPM I/O port; MMIO stays available.
 		write_io_enabler( c_io_en2_mio, 8'b1000_0011 );
 		check_decode( "opm io (disabled again)", { 8'h00, c_opm_io }, 1'b1, 1'b1, c_cs_none );
@@ -352,6 +384,8 @@ module tb ();
 
 		memory_io_en	= 1'b0;
 		check_decode( "ssg mio (io_en=0)->scc", c_ssg_mio, 1'b0, 1'b1, c_cs_scc );
+		check_decode( "7FFFh read (io_en=0)->scc", c_io_en2_mio, 1'b0, 1'b0, c_cs_scc );
+		check( "7FFFh read (io_en=0) no rdata", bus_rdata_en == 1'b0 );
 		memory_io_en	= 1'b1;
 
 		// --------------------------------------------------------------------

@@ -129,6 +129,8 @@ module y8960cartridge_tangprimer25k (
 	wire			w_bus_opm_ready;
 	wire	[7:0]	w_bus_opm_rdata;
 	wire			w_bus_opm_rdata_en;
+	wire	[7:0]	w_bus_decode_rdata;
+	wire			w_bus_decode_rdata_en;
 	wire			w_opm_wait_n;
 	wire			w_opm_intr_n;
 	wire			w_scc_memory_cs;
@@ -352,6 +354,8 @@ module y8960cartridge_tangprimer25k (
 		.bus_valid				( w_bus_valid				),
 		.bus_ready				( w_bus_ready				),
 		.bus_wdata				( w_bus_wdata				),
+		.bus_rdata				( w_bus_decode_rdata		),
+		.bus_rdata_en			( w_bus_decode_rdata_en		),
 		.bus_timer_cs			( w_bus_timer_cs			),
 		.bus_opll_cs			( w_bus_opll_cs				),
 		.bus_opl2_cs			( w_bus_opl2_cs				),
@@ -370,8 +374,8 @@ module y8960cartridge_tangprimer25k (
 		.led					(							)
 	);
 
-	assign w_bus_rdata		= w_bus_timer_rdata & w_bus_opl2_rdata & w_bus_ssg_rdata & w_bus_scc_rdata & w_bus_sysctrl_rdata & w_bus_scc_bank_rdata & w_bus_opm_rdata;
-	assign w_bus_rdata_en	= w_bus_timer_rdata_en | w_bus_opl2_rdata_en | w_bus_ssg_rdata_en | w_bus_scc_rdata_en | w_bus_sysctrl_rdata_en | w_bus_scc_bank_rdata_en | w_bus_opm_rdata_en;
+	assign w_bus_rdata		= w_bus_timer_rdata & w_bus_opl2_rdata & w_bus_ssg_rdata & w_bus_scc_rdata & w_bus_sysctrl_rdata & w_bus_scc_bank_rdata & w_bus_opm_rdata & w_bus_decode_rdata;
+	assign w_bus_rdata_en	= w_bus_timer_rdata_en | w_bus_opl2_rdata_en | w_bus_ssg_rdata_en | w_bus_scc_rdata_en | w_bus_sysctrl_rdata_en | w_bus_scc_bank_rdata_en | w_bus_opm_rdata_en | w_bus_decode_rdata_en;
 	assign w_int_n			= w_timer_intr_n & w_opl2_intr_n & w_opm_intr_n;
 
 	scc_bank u_scc_bank (

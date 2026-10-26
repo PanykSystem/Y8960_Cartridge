@@ -70,6 +70,8 @@ module y8960_address_decode(
 	input			bus_valid,
 	output			bus_ready,
 	input	[7:0]	bus_wdata,
+	output	[7:0]	bus_rdata,				//	7FFFh (I/O Enabler2) read data
+	output			bus_rdata_en,
 	//	Module chip select
 	output			bus_timer_cs,
 	output			bus_opll_cs,
@@ -137,11 +139,13 @@ module y8960_address_decode(
 	wire			w_bus_sysctrl_cs	= w_io_access & w_io_sysctrl_match;
 
 	// --------------------------------------------------------------------
-	//	Memory mapped I/O address decode (7FF0h-7FFFh window, write only)
+	//	Memory mapped I/O address decode (7FF0h-7FFFh window, write only
+	//	except 7FFFh which is also readable)
 	// --------------------------------------------------------------------
 	wire			w_mem_access		= bus_valid & ~bus_io;
 	wire			w_mio_window		= memory_io_en & bus_write & (bus_address[15:4] == 12'h7FF);
 	wire			w_mio_active		= w_mem_access & w_mio_window;
+	wire			w_mio_io_en2_rd_cs	= w_mem_access & memory_io_en & ~bus_write & (bus_address == 16'h7FFF);
 
 	wire			w_mio_ssg_match		= (bus_address[4:1] == c_ssg_mio[4:1]);
 	wire			w_mio_opll_match	= (bus_address[4:1] == c_opll_mio[4:1]);
@@ -162,7 +166,7 @@ module y8960_address_decode(
 	wire			w_bus_io_en_cs		= w_mio_io_en1_cs | w_mio_io_en2_cs;
 
 	//	Plain memory access (no mio window hit, or read, or io_en=0) always selects SCC
-	wire			w_mem_plain			= w_mem_access & ~w_mio_window;
+	wire			w_mem_plain			= w_mem_access & ~w_mio_window & ~w_mio_io_en2_rd_cs;
 
 	wire			w_bus_ssg_cs		= w_bus_ssg_cs_io | w_bus_ssg_cs_mio;
 	wire			w_bus_opll_cs		= w_bus_opll_cs_io | w_bus_opll_cs_mio;
@@ -186,6 +190,7 @@ module y8960_address_decode(
 						| (w_bus_opm_cs & bus_opm_ready)
 						| (w_bus_sysctrl_cs & bus_sysctrl_ready)
 						| w_bus_io_en_cs
+						| w_mio_io_en2_rd_cs
 						| w_mio_unused_cs;
 
 	// --------------------------------------------------------------------
@@ -211,6 +216,30 @@ module y8960_address_decode(
 			ff_timer_io_en		<= bus_wdata[7];
 		end
 	end
+
+	// --------------------------------------------------------------------
+	//	7FFFh read: { TIMER, 0000, OPM, SSG, OPL2 }
+	// --------------------------------------------------------------------
+	reg		[7:0]	ff_rdata;
+	reg				ff_rdata_en;
+
+	always @( posedge clk ) begin
+		if( !reset_n ) begin
+			ff_rdata	<= 8'hFF;
+			ff_rdata_en	<= 1'b0;
+		end
+		else if( w_mio_io_en2_rd_cs ) begin
+			ff_rdata	<= { ff_timer_io_en, 4'b0000, ff_opm_io_en, ff_ssg_io_en, ff_opl2_io_en };
+			ff_rdata_en	<= 1'b1;
+		end
+		else begin
+			ff_rdata	<= 8'hFF;
+			ff_rdata_en	<= 1'b0;
+		end
+	end
+
+	assign bus_rdata	= ff_rdata;
+	assign bus_rdata_en	= ff_rdata_en;
 
 	reg		[15:0]	ff_led_counter	= 16'hFFFF;
 	reg		[3:0]	ff_led	= 4'b1111;

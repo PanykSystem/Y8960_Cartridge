@@ -179,6 +179,8 @@ module tb ();
 		.bus_valid				( bus_valid				),
 		.bus_ready				( bus_ready				),
 		.bus_wdata				( bus_wdata				),
+		.bus_rdata				(							),
+		.bus_rdata_en			(							),
 		.bus_timer_cs			( bus_timer_cs			),
 		.bus_opll_cs			( bus_opll_cs			),
 		.bus_opl2_cs			( bus_opl2_cs			),

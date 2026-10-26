@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <LangVersion>7.3</LangVersion>
+    <StartupObject>Y8960UpdWin.Tests</StartupObject>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\Y8960UpdWin\*.cs" Link="App\%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>
